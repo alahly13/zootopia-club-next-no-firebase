@@ -1,0 +1,45 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img "Zootopia Club" [ref=e6]
+        - generic [ref=e15]: Zootopia Club
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Theme
+          - generic [ref=e19]:
+            - 'button "Theme: Light" [ref=e20]': Light
+            - 'button "Theme: Dark" [ref=e21]': Dark
+            - 'button "Theme: System" [pressed] [ref=e22]': System
+        - generic [ref=e23]:
+          - paragraph [ref=e24]: Language
+          - generic [ref=e25]:
+            - 'button "Language: English" [pressed] [ref=e26]': English
+            - 'button "Language: Arabic" [ref=e27]': Arabic
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - img "Build better science study flows" [ref=e31]
+        - generic [ref=e33]:
+          - paragraph [ref=e34]: Faculty of Science
+          - heading "Your Faculty of Science workspace, ready in one secure sign-in." [level=1] [ref=e35]
+          - paragraph [ref=e36]: Assessments, infographics, and research-led learning in one polished platform.
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - paragraph [ref=e41]: Use your university Google account to continue.
+          - generic [ref=e42]:
+            - img [ref=e44]
+            - generic [ref=e46]:
+              - paragraph [ref=e47]: Google sign-in isn’t available here yet
+              - paragraph [ref=e48]: Required web sign-in configuration is still missing in this environment.
+          - generic [ref=e49]:
+            - button "Google sign-in unavailable" [disabled] [ref=e50]:
+              - img [ref=e52]
+              - generic [ref=e57]: Google sign-in unavailable
+            - link "Administrator sign-in" [ref=e58] [cursor=pointer]:
+              - /url: /admin/login
+              - img [ref=e59]
+              - generic [ref=e61]: Administrator sign-in
+        - group [ref=e62]:
+          - generic "Sign-in support" [ref=e63]:
+            - text: Sign-in support
+            - img [ref=e64]

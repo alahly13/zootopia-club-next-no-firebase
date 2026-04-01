@@ -1,0 +1,20 @@
+{
+  "hosting": {
+    "source": "apps/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  },
+  "firestore": [
+    {
+      "database": "zootopia-club-next-database",
+      "rules": "firebase/firestore.rules",
+      "indexes": "firebase/firestore.indexes.json"
+    }
+  ],
+  "storage": {
+    "rules": "firebase/storage.rules"
+  }
+}

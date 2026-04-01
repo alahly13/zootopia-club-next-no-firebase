@@ -1,0 +1,449 @@
+Spawn multiple subagents to explore this repo in parallel.
+
+Use separate subagents for:
+1. architecture and file-ownership tracing
+2. frontend/UI and route inventory tracing
+3. backend/API/runtime/service tracing
+4. auth/session/environment/deployment tracing
+5. documentation/ledger consolidation verification
+
+Then consolidate findings before making changes.
+
+Analyze the current codebase first before making any changes.
+
+Important:
+This is an existing production-style project. Do not rebuild from scratch. Do not redesign the architecture unless explicitly requested. Do not change unrelated runtime logic. This task is specifically about updating and enriching the project ledger as the authoritative long-form project memory and structural description.
+
+Mandatory documentation rule:
+Read `ZOOTOPIA_PROJECT_LEDGER.txt` first, in full, before making any edits.
+Treat it as the primary historical memory of the project.
+Do not overwrite history.
+Do not delete real information.
+Do not remove valid older entries.
+Do not flatten or destroy chronological change history.
+
+Task type:
+Hybrid / architecture-sensitive documentation maintenance
+
+Goal:
+Update `ZOOTOPIA_PROJECT_LEDGER.txt` so it becomes a deeply accurate, current, professional, and comprehensive description of the entire project at the end of the current development day.
+
+Core intent:
+This file is the master project memory and should describe:
+- project identity
+- project purpose
+- high-level architecture
+- frontend/backend ownership
+- runtime/deployment paths
+- auth/session flow
+- document/runtime flow
+- AI/model/provider flow
+- admin/billing/communication systems
+- important feature areas
+- key routes and ownership
+- sensitive files and high-risk areas
+- dependency/runtime baselines
+- environment/deployment structure
+- current goals and architecture direction
+- important compatibility rules
+- all meaningful changes completed so far
+
+Critical preservation rules:
+- Do not delete any true historical information
+- Do not erase older valid entries
+- Do not rewrite the ledger from scratch unless the file is clearly corrupted and unrecoverable
+- Do not collapse the change history into a short summary
+- Do not remove prior dated entries
+- Preserve all real historical knowledge unless it is clearly false and contradicted by the current verified codebase
+- If an older note is outdated, preserve it historically but clarify the newer verified state above or beside it
+- Append and refine professionally; do not destroy project memory
+
+Required work:
+1. Re-read and verify the current live codebase against the existing ledger.
+2. Expand and update the ledger so it accurately reflects the current project state.
+3. Ensure the ledger includes all major project dimensions, including:
+   - identity and purpose
+   - current architecture style
+   - verified runtime/deployment model
+   - frontend/backend separation
+   - key ownership boundaries
+   - feature/tool inventory
+   - key files and sensitive files
+   - auth/session architecture
+   - document runtime/extraction/storage flow
+   - AI/model/provider orchestration
+   - admin/governance/billing/communication systems
+   - environment/config/deployment files
+   - supported deployment targets
+   - guidance for future agents/developers
+4. Update the “current verified snapshot” style content where needed.
+5. Append a new dated end-of-day change entry for the current day’s work.
+6. Keep the ledger structured, professional, future-developer-friendly, and historically safe.
+
+Mandatory environment-specific requirement:
+When updating the ledger, explicitly preserve or clarify the separation between:
+1. Local integrated development
+2. Firebase Hosting + Cloud Run
+3. Netlify frontend + Cloud Run backend
+4. Any other active backend-capable deployment path already present in the repo
+
+For each relevant runtime path, make sure the ledger clearly reflects:
+- what part is frontend
+- what part is backend
+- what path/API routing behavior is used
+- what auth/session behavior applies
+- what env/deployment assumptions matter
+- what is same-origin vs cross-origin
+- what is path-specific vs shared
+
+Required audit scope:
+Inspect and reconcile the ledger against at minimum:
+- `package.json`
+- `package-lock.json`
+- `server.ts`
+- `server/*`
+- `src/App.tsx`
+- `src/auth/*`
+- `src/ai/*`
+- `src/features/*`
+- `src/components/*` where needed for shared shell/runtime understanding
+- `src/services/*` where needed for backend/frontend contract understanding
+- `src/routing/*`
+- `.env.example`
+- `.env`
+- `cloudrun.env`
+- `firebase.json`
+- `netlify.toml`
+- `Dockerfile`
+- `cloudbuild.yaml`
+- `deployment/runtime-manifest.json`
+- `firestore.rules`
+- `storage.rules`
+- `tests/*` only for inventory/isolation awareness, not to mix them into production ownership
+
+Ledger quality requirements:
+- Keep it long-form and rich, not shallow
+- Keep it technically accurate
+- Keep it organized by sections
+- Keep both high-level explanation and precise file references
+- Keep it useful for future AI agents and human developers
+- Preserve chronology
+- Add missing sections if they are clearly needed
+- Clarify outdated areas without deleting historical truth
+- Note important risks, sensitive files, and architecture boundaries
+- Preserve and improve readability
+
+Do not:
+- do not delete genuine historical entries
+- do not summarize the entire project into a tiny note
+- do not remove file references if they are still meaningful
+- do not invent architecture or features that do not exist
+- do not change code just to make the ledger easier
+- do not mix test-only code into production architecture descriptions
+- do not expose secrets from `.env`, `cloudrun.env`, or private key files
+- do not write fake verification claims
+
+Verification requirements:
+After updating the ledger:
+1. Confirm which sections were refreshed
+2. Confirm which new architectural facts were added
+3. Confirm which older sections were preserved
+4. Clearly identify whether any older notes were kept as historical but superseded by newer verified state
+5. Run full-project lint if this task touched any code or structured files beyond the ledger
+6. If only the ledger was edited, state that runtime code was left untouched
+
+Output requirements:
+After the work, report clearly:
+1. whether the ledger was expanded, corrected, or both
+2. which sections were updated
+3. whether historical entries were preserved
+4. what new verified project facts were added
+5. what was intentionally left untouched
+6. whether only the ledger changed or other files too
+7. whether any unresolved ambiguity remains in the project description
+
+Final instruction:
+Treat `ZOOTOPIA_PROJECT_LEDGER.txt` as the authoritative encyclopedia of the project.
+The goal is not just to append one short log entry.
+The goal is to keep it continuously updated so it describes the full project truth, structure, goals, major systems, and development history without losing any real information.
+*********************************************************
+*********************************************************
+*********************************************************
+Spawn multiple subagents to explore this repo in parallel.
+
+Use separate subagents for:
+1. auth/session bootstrap tracing
+2. frontend startup + recovery UI tracing
+3. backend API/runtime tracing
+4. Firebase identity/session verification tracing
+5. lint/build/test verification
+6. Redis-remnant detection and removal-safety tracing
+
+Then consolidate findings before making changes.
+
+Analyze the current codebase first before making any changes.
+
+Important:
+This is an existing production-style project. Do not rebuild from scratch. Do not redesign the architecture unless explicitly required. Do not remove working features. Do not change unrelated areas. Make only minimal, surgical, backward-compatible changes required for this task.
+
+Mandatory documentation rule:
+Before making any change, read `ZOOTOPIA_PROJECT_LEDGER.txt` first and use it as the primary project memory and historical change log.
+If the repo contains any auth/session/runtime guide or startup-recovery related guide, read it too before implementation.
+
+Task type:
+Hybrid / architecture-sensitive / auth-startup reliability
+
+User-visible problem:
+Login appears to succeed, but the user does not enter the platform.
+Instead, the app consistently shows the Startup Recovery screen with:
+- "Startup is taking longer than expected"
+- "Failed to bootstrap session."
+
+Goal:
+Find the real root cause of the failed startup bootstrap flow after login, fix it safely, verify the intended login -> bootstrap -> protected route entry chain end-to-end, and ensure the project uses Firebase-based auth/session-related flow rather than Redis.
+
+Critical scope:
+This task is specifically about:
+1. startup bootstrap failure after successful login
+2. session bootstrap / refresh / hydration reliability
+3. startup recovery barrier logic
+4. protected route entry after auth resolves
+5. backend validation of the authenticated session
+6. verifying that Redis is not part of the intended live auth/session runtime path
+7. confirming Firebase Auth + Firestore-backed session-related flow is the active intended foundation
+
+Do not turn this into a broad refactor.
+Do not rewrite the auth architecture unless a narrow fix is strictly required.
+Do not rewrite unrelated pages or tool flows.
+
+Very important architecture rule:
+Redis has been intentionally removed from this project and must not remain an active requirement for startup, auth, session bootstrap, session refresh, route entry, user hydration, or any related runtime path.
+You must explicitly verify that:
+- there is no active Redis dependency in the auth/session/startup runtime path
+- there are no stale Redis imports or Redis clients still affecting startup/session behavior
+- there are no Redis-based session stores still wired into runtime
+- there are no Redis env var assumptions blocking startup
+- Firebase Auth is the real identity foundation
+- Firestore-backed backend session/state persistence is the intended current architecture where applicable
+If Redis remnants exist, classify them clearly and remove or isolate them only if directly necessary and safe.
+
+Mandatory environment-specific requirement:
+You must explicitly separate your analysis and implementation notes by runtime/deployment path:
+
+1. Local integrated development
+2. Firebase Hosting + Cloud Run
+3. Netlify frontend + Cloud Run backend
+4. Any other active backend-capable deployment path already present in the repo
+
+For each path, explain clearly:
+- what part is frontend
+- what part is backend
+- what route/API path is used
+- what auth/session behavior applies
+- what environment variables matter
+- what behavior is local-only vs production-only
+- what is same-origin vs cross-origin
+- whether Redis is fully absent from that path
+- whether Firebase is the active auth/session-related foundation in that path
+
+Do not mix these environments together.
+Do not assume that a local fix automatically applies to Cloud Run or Netlify.
+Call out environment-specific risks explicitly.
+
+Required audit scope:
+Inspect and trace at minimum:
+- `package.json`
+- `package-lock.json`
+- `server.ts`
+- `server/authSessionService.ts`
+- `server/auth/*`
+- `server/runtimeConfig.ts`
+- `server/cache/*`
+- `src/App.tsx`
+- `src/main.tsx`
+- `src/bootstrap/*`
+- `src/components/AppStartupRecovery.tsx`
+- `src/components/ProtectedRoute.tsx`
+- `src/components/MainLayout.tsx`
+- `src/auth/AuthContext.tsx`
+- `src/auth/Login.tsx`
+- `src/auth/session/*`
+- `src/auth/hooks/*`
+- `src/utils/authHeaders.ts`
+- `src/routing/workspaceRoutes.ts`
+- services/components/hooks that call:
+  - `/api/auth/session/bootstrap`
+  - `/api/auth/session/refresh`
+  - `/api/auth/session/logout`
+- `.env`
+- `.env.example`
+- `cloudrun.env`
+- `deployment/runtime-manifest.json`
+
+Primary questions to answer before editing:
+1. After login succeeds, what exact code path decides whether the app may enter the platform?
+2. Which component or hook triggers startup bootstrap?
+3. Which function calls `/api/auth/session/bootstrap`?
+4. How are auth headers created during bootstrap?
+5. Can bootstrap fire before Firebase auth hydration fully resolves?
+6. What exact condition triggers the Startup Recovery screen?
+7. Which backend middleware validates bootstrap requests?
+8. What does the backend require in order to accept bootstrap?
+9. Can user profile loading, role normalization, or session mode resolution fail bootstrap?
+10. Is there any mismatch between Firebase frontend auth state and backend bootstrap/session validation?
+11. Is Redis referenced anywhere in the startup/auth/session runtime path?
+12. If Redis references remain, are they active, dormant, compatibility-only, dead code, deployment-only, or docs-only?
+
+Required startup/bootstrap tracing:
+Trace the full path from:
+- login UI submit
+- Firebase login success
+- auth listener resolution
+- token/header generation
+- startup bootstrap trigger
+- `POST /api/auth/session/bootstrap`
+- backend token verification
+- backend session/profile resolution
+- frontend startup barrier release
+- protected route entry
+- reload persistence
+- logout invalidation
+
+Required Redis-remnant audit:
+Explicitly search for and classify:
+- `redis`
+- `Redis`
+- `sharedRedis`
+- `redisBackedStore`
+- `REDIS_URL`
+- `REDIS_HOST`
+- `REDIS_PORT`
+- `REDIS_PASSWORD`
+- any session/cache code tied to startup or auth validation
+- any deployment file that still assumes Redis exists
+- any package dependency installed only for Redis usage
+- any docs/comments that incorrectly imply Redis is still needed
+
+For every Redis-related finding, classify it as one of:
+- active runtime dependency
+- inactive fallback path
+- dead code
+- deployment-only leftover
+- documentation-only leftover
+- safe non-auth cache utility
+Then explain whether it should stay or be removed.
+
+Required implementation work:
+1. Run full-project lint.
+2. Run build verification.
+3. Fix the real startup/bootstrap failure root cause with the smallest safe change possible.
+4. Fix only auth/startup/session chain issues directly related to this problem.
+5. Verify that successful login can actually progress into the platform instead of stopping at Startup Recovery.
+6. Verify that refresh/reload works if the intended architecture supports persistence.
+7. Verify that logout invalidates session correctly.
+8. Verify that startup no longer depends on Redis.
+9. Preserve backend-authoritative validation.
+10. Preserve admin/user/fast-access separation.
+11. Preserve existing route/layout structure outside the requested scope.
+12. Do not reintroduce Redis.
+
+Suggested starting files:
+- `src/auth/session/sessionApi.ts`
+- `src/utils/authHeaders.ts`
+- `src/auth/AuthContext.tsx`
+- `src/auth/hooks/useAuthListeners.ts`
+- `src/auth/hooks/useAuthActions.ts`
+- `src/components/AppStartupRecovery.tsx`
+- `src/components/ProtectedRoute.tsx`
+- `src/App.tsx`
+- `server.ts`
+- `server/authSessionService.ts`
+
+Dependency and compatibility rules:
+Before implementation:
+- inspect `package.json`
+- inspect `package-lock.json`
+- detect exact React version
+- detect relevant auth/session/runtime package versions
+- explicitly detect whether `redis` is installed
+- if `redis` is still present, explain whether it is actually needed
+- do not keep Redis-related packages unless they are truly required by the intended runtime
+- keep package.json, lockfile, and imports aligned
+
+Auth/session constraints:
+- Reuse the current canonical browser auth/session path
+- Do not invent a second auth system
+- Do not bypass backend-authoritative validation
+- If token refresh is needed, keep it in the existing auth/session system
+- Surface clear user-facing errors if session/bootstrap truly fails
+- Do not allow silent broken startup states to appear successful
+- Do not leave Redis-based assumptions in startup/session logic
+
+Tests and non-production isolation rules:
+- Test files must remain isolated
+- Mock code must not be imported by production code
+- Debug-only code must not remain in live runtime paths
+- Verify explicitly that test-only files are not wired into production runtime
+
+Verification requirements:
+After implementation:
+1. Run full-project lint
+2. Run build
+3. Run any targeted tests relevant to auth/startup/session if available
+4. If some verification cannot run in the current environment, clearly state runner limitations
+5. Clearly separate:
+   - verified in current environment
+   - not verifiable due to runner limitations
+   - must be verified locally or in CI/browser
+6. Explicitly verify whether the Startup Recovery issue is resolved in the intended flow
+7. Explicitly report whether Redis is fully absent from the intended runtime path
+8. Explicitly report whether Firebase is the active auth/session-related foundation
+
+Output requirements:
+After the work, report clearly:
+1. the exact root cause of the startup bootstrap failure
+2. exact files changed
+3. exact minimal code changes made
+4. what auth/session/startup flow was verified
+5. whether login now enters the platform successfully
+6. what Redis remnants were found, if any
+7. whether those remnants were active, stale, dead, deployment-only, or docs-only
+8. whether Redis was fully removed from the intended startup/auth runtime path
+9. what was preserved
+10. environment-specific impact for:
+   - local integrated development
+   - Firebase Hosting + Cloud Run
+   - Netlify frontend + Cloud Run backend
+   - any other active backend-capable deployment path
+11. whether full-project lint passed
+12. whether build passed
+13. whether remaining issues are pre-existing only
+14. what was intentionally left untouched
+
+Do not:
+- do not broad-refactor the whole project
+- do not redesign the auth architecture without necessity
+- do not rewrite unrelated features
+- do not remove compatibility logic unless verified unnecessary
+- do not skip lint/build verification
+- do not claim true browser verification if the runner prevented it
+- do not leave Redis assumptions unexamined
+- do not reintroduce Redis
+- do not silently keep stale startup/session code if it directly causes confusion or failure
+
+Mandatory ledger rule:
+Append a new dated entry to `ZOOTOPIA_PROJECT_LEDGER.txt` after the change with:
+- Area
+- Files
+- Summary
+- Reason
+- Technical details
+- Risks / dependencies
+- Notes
+
+Additional ledger requirement:
+If Redis remnants were found, explicitly document:
+- where they were found
+- whether they were active or stale
+- whether they were removed, isolated, or intentionally left untouched
+- why that decision was made

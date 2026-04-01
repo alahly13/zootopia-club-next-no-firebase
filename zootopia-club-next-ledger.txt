@@ -1,0 +1,491 @@
+Zootopia Club Next Master Ledger
+Last refreshed: 2026-04-01
+
+Project Identity
+- Name: Zootopia Club Next
+- Workspace root: C:\zootopia-club-next
+- Primary architecture guide: Guide-Files\Zootopia_Club_Next_16_2_2_Simplified_Monorepo_Guide_2026_WORKSPACE_UPDATED.md
+- Old-project reference: C:\zootopia_club_ai_platform
+
+Current Truth Snapshot
+- `apps/web` is the only live application runtime today.
+- `apps/api` exists as a future extraction boundary only and does not serve production traffic.
+- The repo uses npm workspaces, not pnpm workspaces or Turborepo.
+- `packages/ui` does not exist in the current repo even though the guide’s target structure leaves room for it.
+- Root `firebase.json` currently targets Firebase Hosting with `apps/web` as the hosting source and deploys Firestore rules/indexes to the named database `zootopia-club-next-database`.
+- Browser Firestore access and browser Storage access are intentionally deny-all.
+- Same-origin App Router Route Handlers plus the Firebase Admin SDK are the real server-authoritative data path.
+- Regular user login and admin login are intentionally separate.
+- Admin authority is claims-first: allowlisted email plus Firebase custom claim `admin: true`.
+- Mandatory non-admin profile completion is enforced server-side before access to the main user workspace.
+
+Guide Alignment Notes
+- The guide remains the main architectural reference.
+- The repo intentionally differs from the guide in a few current-state areas:
+  - `apps/api` is present but deferred.
+  - npm workspaces are used instead of pnpm or Turborepo.
+  - `packages/ui` is not currently present.
+  - Firebase Hosting is the active repo deployment config even though both the guide and official Firebase docs keep App Hosting in the architectural conversation.
+
+Monorepo Structure
+- Root ownership
+  - `package.json`: workspace orchestration and root scripts
+  - `package-lock.json`: canonical lockfile
+  - `tsconfig.base.json`, `tsconfig.json`: shared TypeScript baseline
+  - `eslint.config.mjs`: root lint config
+  - `.env.example`: current environment contract
+  - `firebase.json`, `.firebaserc`: Firebase deployment wiring
+  - `README.md`, `docs/`, `Guide-Files/`: repo docs and reference material
+- `apps/web`
+  - `app/`: App Router pages, layouts, and Route Handlers
+  - `components/`: UI and client-side interaction components
+  - `lib/`: request context, preferences, auth helpers, server modules, AI orchestration, Firebase integration
+  - `messages/`: EN/AR message catalogs
+  - `public/`: static assets
+  - `proxy.ts`: optimistic request-time redirects only
+- `apps/api`
+  - Placeholder workspace package for future backend extraction
+  - Current source files only describe its deferred role
+- `packages/shared-config`
+  - App identity, Firebase project/database constants, route constants, env cookie keys, feature flags, AI model catalog
+- `packages/shared-types`
+  - Shared auth, user, API, document, assessment, infographic, and admin contracts
+- `packages/shared-utils`
+  - Validation, upload policy, RTL helpers, date helpers, and small pure utilities
+- `firebase`
+  - `firestore.rules`
+  - `firestore.indexes.json`
+  - `storage.rules`
+- `scripts/firebase`
+  - Firebase env bootstrap and admin maintenance scripts
+- `docs`
+  - Active architecture notes plus legacy-reference material for migration context only
+
+Important Folders And Files
+- Root
+  - `package.json`
+  - `.env.example`
+  - `firebase.json`
+  - `zootopia-club-next-ledger.txt`
+- `apps/web/app`
+  - `layout.tsx`
+  - `(public)/login/page.tsx`
+  - `(public)/admin/login/page.tsx`
+  - `(protected)/layout.tsx`
+  - `(protected)/settings/page.tsx`
+  - `(protected)/(completed)/page.tsx`
+  - `(protected)/(completed)/assessment/page.tsx`
+  - `(protected)/(completed)/infographic/page.tsx`
+  - `(protected)/admin/layout.tsx`
+  - `(protected)/admin/page.tsx`
+  - `(protected)/admin/users/page.tsx`
+  - `api/**/route.ts`
+- `apps/web/lib`
+  - `return-to.ts`
+  - `preferences.ts`
+  - `messages.ts`
+  - `firebase/client.ts`
+  - `server/firebase-admin.ts`
+  - `server/session.ts`
+  - `server/admin-auth.ts`
+  - `server/repository.ts`
+  - `server/document-runtime.ts`
+  - `server/datalab-convert.ts`
+  - `server/runtime.ts`
+  - `server/ai/execution.ts`
+  - `server/ai/provider-runtime.ts`
+- `apps/web/components`
+  - `auth/login-panel.tsx`
+  - `auth/admin-login-panel.tsx`
+  - `auth/sign-out-button.tsx`
+  - `layout/shell-nav.tsx`
+  - `settings/profile-settings-form.tsx`
+  - `upload/upload-workspace.tsx`
+  - `assessment/assessment-studio.tsx`
+  - `infographic/infographic-studio.tsx`
+  - `admin/users-table.tsx`
+- Shared packages
+  - `packages/shared-config/src/app.ts`
+  - `packages/shared-config/src/env.ts`
+  - `packages/shared-config/src/routes.ts`
+  - `packages/shared-config/src/models.ts`
+  - `packages/shared-types/src/auth.ts`
+  - `packages/shared-types/src/user.ts`
+  - `packages/shared-types/src/api.ts`
+  - `packages/shared-utils/src/validation.ts`
+
+Route Map
+- Public routes
+  - `/login`
+  - `/admin/login`
+- Authenticated non-admin shell
+  - `/settings`
+- Completion-required non-admin routes
+  - `/`
+  - `/assessment`
+  - `/infographic`
+- Admin routes
+  - `/admin`
+  - `/admin/users`
+
+API Map
+- Core/runtime
+  - `GET /api/health`
+- Session/auth
+  - `GET /api/auth/me`
+  - `POST /api/auth/bootstrap`
+  - `POST /api/auth/logout`
+- Admin auth
+  - `POST /api/auth/admin/resolve-identifier`
+  - `POST /api/auth/admin/bootstrap`
+- User protected APIs
+  - `POST /api/uploads`
+  - `POST /api/assessment`
+  - `GET /api/assessment/[id]`
+  - `POST /api/infographic`
+  - `GET /api/infographic/[id]`
+  - `PATCH /api/users/me/profile`
+- Admin APIs
+  - `GET /api/admin/overview`
+  - `GET /api/admin/users`
+  - `PATCH /api/admin/users/[uid]/role`
+  - `PATCH /api/admin/users/[uid]/status`
+
+Auth And Session Architecture
+- Session model
+  - One secure httpOnly session cookie: `zc_session`
+  - Preference cookies: `zc_theme`, `zc_locale`
+  - Cookie names are defined in `packages/shared-config/src/env.ts`
+- User login flow
+  - Public entry point: `/login`
+  - Firebase Web SDK Google sign-in happens client-side
+  - Client auth persistence is intentionally in-memory only during bootstrap
+  - `POST /api/auth/bootstrap` verifies the Google ID token server-side, creates the session cookie, mirrors/upserts the user document, and returns the correct redirect target
+  - Client signs out its Firebase Web state after bootstrap so the session cookie remains the authoritative long-lived session
+- Admin login flow
+  - Public entry point: `/admin/login`
+  - Separate UI and separate bootstrap path
+  - Admin identifier resolution happens server-side first
+  - Real credential step is Firebase Email/Password
+  - `POST /api/auth/admin/bootstrap` verifies recent sign-in, provider `password`, allowlisted email, and `admin: true` claim before issuing the same session cookie type
+- Route protection
+  - `apps/web/proxy.ts` only checks cookie presence and redirects unauthenticated requests optimistically
+  - Real authorization stays in server code through:
+    - `getSessionSnapshot()`
+    - `requireAuthenticatedUser()`
+    - `requireCompletedUser()`
+    - `requireAdminUser()`
+- Session user source of truth
+  - `apps/web/lib/server/session.ts` verifies the session cookie through Firebase Admin Auth
+  - The decoded token is combined with the Firestore user record through `upsertUserFromAuth()`
+  - Active/suspended state comes from the Firestore mirror
+
+Admin Login Architecture
+- Only these emails may hold admin authority:
+  - `alahlyeagle@gmail.com`
+  - `elmahdy@admin.com`
+  - `alahlyeagle13@gmail.com`
+- Supported admin usernames:
+  - `elmahdy`
+  - `alahlyeagle`
+- Admin authority rule
+  - allowlisted email
+  - plus Firebase custom claim `admin === true`
+- Firestore `role` and `status` remain mirrored for UI/admin management, but they are not sufficient by themselves for privileged access
+- Key files
+  - `apps/web/lib/server/admin-auth.ts`
+  - `apps/web/app/api/auth/admin/resolve-identifier/route.ts`
+  - `apps/web/app/api/auth/admin/bootstrap/route.ts`
+  - `scripts/firebase/set-admin-claims.mjs`
+  - `scripts/firebase/set-admin-passwords.mjs`
+
+Mandatory Profile Completion Architecture
+- Applies to authenticated non-admin users only
+- Required fields
+  - `fullName`
+  - `universityCode`
+  - `profileCompleted`
+  - `profileCompletedAt`
+- Validation rules
+  - `fullName`
+    - trim and normalize repeated whitespace
+    - normalized length 12 through 120 characters
+    - at least 4 meaningful parts
+    - Arabic and/or English letters only, with internal apostrophes or hyphens allowed
+    - each part must contain at least 2 letters after stripping apostrophes and hyphens
+  - `universityCode`
+    - exactly 7 digits
+    - first 2 digits must be a cohort prefix from `13` through `31`
+    - prefixes map to years `2013` through `2031`
+- Persistence model
+  - stored on `users/{uid}`
+  - server recomputes `profileCompleted` from stored fields instead of trusting client input
+- Enforcement points
+  - bootstrap redirect shaping in `POST /api/auth/bootstrap`
+  - session helper checks in `apps/web/lib/server/session.ts`
+  - completion-only protected pages under `apps/web/app/(protected)/(completed)`
+  - protected user APIs return `PROFILE_INCOMPLETE` if the user is still gated
+- Settings save flow
+  - `PATCH /api/users/me/profile` is the only save path for the required profile fields
+  - `apps/web/components/settings/profile-settings-form.tsx` provides the client UI
+- Admin policy
+  - admins are exempt from this user profile gate
+
+Firebase Integration
+- Firebase project: `zootopia2026`
+- Firestore database: `zootopia-club-next-database`
+- Default storage bucket: `zootopia2026.firebasestorage.app` unless overridden
+- Live Firestore collections used by the application
+  - `users`
+  - `documents`
+  - `assessmentGenerations`
+  - `infographicGenerations`
+  - `adminActivityLogs`
+- Live Storage path pattern
+  - `documents/{ownerUid}/{documentId}/{fileName}`
+- Firebase Admin bootstrap
+  - `apps/web/lib/server/firebase-admin.ts`
+  - supports canonical `FIREBASE_*` env names and older `FIREBASE_ADMIN_*` aliases
+- Firebase client bootstrap
+  - `apps/web/lib/firebase/client.ts`
+  - requires `NEXT_PUBLIC_FIREBASE_API_KEY` and `NEXT_PUBLIC_FIREBASE_APP_ID`
+  - derives auth domain and storage bucket defaults from the shared project id
+
+Firestore, Storage, Rules, And Indexes Strategy
+- Firestore Rules
+  - File: `firebase/firestore.rules`
+  - Current strategy: deny all browser/client SDK access
+  - The live app uses Route Handlers plus Firebase Admin SDK for all real reads and writes
+  - Rules comments were refreshed on 2026-04-01 to document:
+    - named-database deployment through `firebase.json`
+    - Admin SDK bypass behavior
+    - server-side enforcement of auth/admin/profile-completion rules
+  - Rule logic was not changed during the 2026-04-01 audit
+- Firestore Indexes
+  - File: `firebase/firestore.indexes.json`
+  - Current composite indexes support owner/date list queries for:
+    - `documents`
+    - `assessmentGenerations`
+    - `infographicGenerations`
+  - No profile-completion-specific index is required because that flow uses direct document lookups/writes on `users/{uid}`
+- Storage Rules
+  - File: `firebase/storage.rules`
+  - Current strategy: deny all browser/client SDK access
+  - Comments document the live server-managed document binary path
+- Security model
+  - Firestore Rules and Storage Rules protect browser access only
+  - Firebase Admin SDK bypasses both by design
+  - The real trust boundary is server code, not client-side Firebase access
+
+Environment Strategy
+- Public browser-safe env vars
+  - `NEXT_PUBLIC_FIREBASE_API_KEY`
+  - `NEXT_PUBLIC_FIREBASE_APP_ID`
+- Private Firebase env vars
+  - `FIREBASE_PROJECT_ID`
+  - `FIREBASE_CLIENT_EMAIL`
+  - `FIREBASE_PRIVATE_KEY`
+  - `FIREBASE_STORAGE_BUCKET`
+  - `ZOOTOPIA_ADMIN_EMAILS`
+- Private AI env vars
+  - `GOOGLE_AI_API_KEY`
+  - `DASHSCOPE_API_KEY`
+  - optional model-selection env vars referenced from `packages/shared-config/src/models.ts`
+- Private Datalab env vars
+  - `DATALAB_API_KEY`
+  - `DATALAB_CONVERT_URL`
+- Important env notes
+  - `.env.example` is the canonical repo env contract
+  - `serviceAccountKeyNext.json` is local bootstrap material only and is not a runtime source of truth
+  - The owner-requested shared admin password must never be stored in `.env` files, Firestore, Storage rules, Storage metadata, client code, or public config
+
+Deployment Strategy
+- Current repo deployment wiring
+  - `firebase.json` points Hosting at `apps/web`
+  - `firebase.json` also deploys Firestore rules and indexes to `zootopia-club-next-database`
+- Firebase Hosting reality
+  - active repo target
+  - still carries the known Firebase Hosting vs App Hosting tension for modern full-stack Next.js
+- App Hosting reality
+  - remains an architectural reference path and strategic fallback
+  - `FEATURE_FLAGS.appHostingFirst` reflects that preference, but it is not the current active repo deployment config
+- Local development
+  - `npm run dev` starts `apps/web`
+  - same-origin Route Handlers are the live backend path
+- Netlify
+  - possible future deployment target for `apps/web` only
+
+Shared Packages And Responsibilities
+- `packages/shared-config`
+  - app identity
+  - Firebase project/database constants
+  - cookie/env keys
+  - feature flags
+  - route constants
+  - AI model catalog
+- `packages/shared-types`
+  - session/auth types
+  - user document/profile contracts
+  - API envelopes
+  - admin contracts
+  - document/assessment/infographic contracts
+- `packages/shared-utils`
+  - validation helpers
+  - upload policy
+  - RTL helpers
+  - date helpers
+  - no secrets and no server-only side effects
+
+Current Feature Set
+- Theme and locale controls
+- EN/AR message support
+- Regular Google sign-in
+- Separate admin Email/Password sign-in
+- Claims-first admin route/API protection
+- Mandatory non-admin profile completion gate
+- Upload workspace and document record creation
+- Datalab-backed conversion when configured, with local fallback extraction
+- Assessment generation flow
+- Infographic generation flow
+- Admin overview and user role/status management
+- Health/runtime inspection endpoints
+
+Deferred Or Intentionally Disabled Areas
+- `apps/api` traffic
+- billing
+- chat
+- communication center
+- legacy entitlement/unlock systems
+- live voice/chatbot/video generation systems from the old platform
+
+Important Reusable Files And Modules
+- Auth and routing
+  - `apps/web/lib/server/session.ts`
+  - `apps/web/lib/server/admin-auth.ts`
+  - `apps/web/lib/return-to.ts`
+  - `apps/web/proxy.ts`
+- Persistence and data flow
+  - `apps/web/lib/server/repository.ts`
+  - `apps/web/lib/server/firebase-admin.ts`
+  - `apps/web/lib/server/document-runtime.ts`
+  - `apps/web/lib/server/datalab-convert.ts`
+- AI orchestration
+  - `apps/web/lib/server/ai/execution.ts`
+  - `apps/web/lib/server/ai/provider-runtime.ts`
+  - `packages/shared-config/src/models.ts`
+- Validation and contracts
+  - `packages/shared-utils/src/validation.ts`
+  - `packages/shared-types/src/auth.ts`
+  - `packages/shared-types/src/user.ts`
+  - `packages/shared-types/src/api.ts`
+- UI shells
+  - `apps/web/components/layout/shell-nav.tsx`
+  - `apps/web/components/auth/login-panel.tsx`
+  - `apps/web/components/auth/admin-login-panel.tsx`
+  - `apps/web/components/settings/profile-settings-form.tsx`
+
+Important Scripts And Commands
+- Root commands
+  - `npm run dev`
+  - `npm run build`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run start`
+- Firebase scripts
+  - `npm run firebase:admin:bootstrap-env`
+  - `npm run firebase:admin:set-claims`
+  - `npm run firebase:admin:set-passwords`
+  - `npm run firebase:rules:deploy`
+- Script files
+  - `scripts/firebase/bootstrap-admin-env.mjs`
+  - `scripts/firebase/env-utils.mjs`
+  - `scripts/firebase/set-admin-claims.mjs`
+  - `scripts/firebase/set-admin-passwords.mjs`
+
+Important Security Assumptions And Trust Boundaries
+- Firebase Admin SDK bypasses Firestore Rules and Storage Rules by design
+- Browser clients do not read or write Firestore or Storage directly in the current architecture
+- `proxy.ts` is never the final authorization layer
+- Admin authority requires both allowlisted identity and Firebase custom claim `admin: true`
+- Firestore `role` and `status` are mirrors for UX and admin operations, not the sole authority for privileged access
+- Profile completion is enforced server-side and cannot be unlocked by UI state alone
+- The session cookie is the authoritative long-lived session
+- Firebase Web SDK auth state is cleared after session bootstrap
+- Server credentials and provider keys must remain outside the client graph
+- The shared admin password model is weak and should eventually be replaced with unique credentials plus MFA
+
+Current Behavior And Boundaries
+- Anonymous user
+  - can access `/login` and `/admin/login`
+  - is redirected away from protected routes by proxy and/or server guards
+- Authenticated non-admin with incomplete profile
+  - can hold a valid session cookie
+  - is redirected to `/settings`
+  - cannot access `/`, `/assessment`, `/infographic`, or protected user APIs until completion is saved and re-read
+- Authenticated non-admin with completed profile
+  - can access the full user workspace
+  - can use uploads, assessment generation, and infographic generation
+- Authenticated admin
+  - must use the separate admin login flow
+  - is protected by claims-first server checks
+  - is exempt from the non-admin profile-completion gate
+- Suspended user
+  - cannot start or continue a valid session regardless of route intent
+
+Generated Artifacts And Non-Source-Of-Truth Paths
+- Generated build artifacts are not architectural source of truth:
+  - `.next`
+  - `apps/web/.next`
+  - `*.tsbuildinfo`
+  - `.tmp-dev-stdout.txt`
+  - `.tmp-dev-stderr.txt`
+  - `debug.log`
+- These files may exist locally after builds or verification runs and should not be used to infer runtime architecture
+
+Change Log
+- 2026-04-01 | Premium Auth Hardening, Feedback UX, And Admin Cross-Entry Polish
+  - What was done: Hardened the shared auth experience without changing backend contracts by adding a reusable inline auth-status surface, human-friendly mapping for real login/admin auth failures, state-aware CTA labels, a secondary admin entry action on `/login`, a reciprocal return action on `/admin/login`, and collapsible support notes that keep environment/config detail out of the main auth cards.
+  - Result: `/login` and `/admin/login` now present clearer loading, blocked, recoverable-warning, permission-denial, and session-bootstrap feedback while preserving the shared premium auth shell, the `science-faculty-enhanced-light-5.png` media strategy, the IBM Plex bilingual font system, and the current custom Zootopia browser-branding direction.
+  - Reuse and migration notes: Old-project inspiration was limited to the mouse/flask/orbit brand language, compact theme/language affordance ideas, and the idea of status-led auth guidance. The old project’s multi-mode auth complexity, clutter, and heavy animated login surface were intentionally not reused.
+  - Dependency decision: Added `lucide-react@0.542.0` to `@zootopia/web` for status and secondary-action icons only. `shadcn/ui` was explicitly not adopted in this pass.
+  - Verification: Root `npm run lint`, `npm run typecheck`, and `npm run build` all passed on 2026-04-01. Live Playwright checks confirmed `/login` at 360px and 1366px and `/admin/login` at 1366px rendered without horizontal overflow and exposed the new secondary auth-route actions correctly. Theme and locale toggle persistence remained code-path preserved, but the dev-session Playwright check for cookie-backed toggle persistence was inconclusive because the live session returned an empty `document.cookie` while also logging repeated dev-only HMR WebSocket handshake errors.
+
+- 2026-04-01 | Premium Shared Auth Redesign And Brand Identity Refresh
+  - What was done: Rebuilt `/login` and `/admin/login` around a shared server-rendered auth shell, integrated `science-faculty-enhanced-light-5.png` as the single responsive hero image, reduced the public auth surfaces to essential bilingual copy, moved configuration/runtime notices below the main auth cards, and preserved the existing Google and admin bootstrap logic within the current App Router server/client boundaries.
+  - Result: The public auth experience now uses a calmer premium composition across mobile, tablet, desktop, and wide screens, with refined spacing, a stronger hierarchy, locale-aware typography, and a shared institutional brand lockup instead of the previous overlapping nested-card layout.
+  - Verification: Root `npm run lint`, `npm run typecheck`, and `npm run build` all passed on 2026-04-01. Live browser checking also confirmed the redesigned `/login` shell renders with no horizontal overflow at 360px and remains reachable alongside `/admin/login`.
+  - Notes: Typography now loads through `next/font` using `IBM Plex Sans`, `IBM Plex Sans Arabic`, and `IBM Plex Mono`. Browser identity assets were refreshed through `apps/web/app/icon.svg`, `apps/web/app/favicon.ico`, and `apps/web/app/apple-icon.png`. No new icon package was added; branding and the Google affordance use custom or inline SVG only.
+
+- 2026-04-01 | Firestore Rules Audit And Ledger Master Reference Refresh
+  - What was done: Re-audited `firebase/firestore.rules` against the live collections, session/auth flow, claims-first admin model, profile-completion flow, named-database deployment config, and server-authoritative Firestore access model. Refreshed the rules comments only, kept the deny-all rule logic unchanged, and rewrote this ledger into a fuller master reference for current architecture and operations.
+  - Result: `firestore.rules` remained structurally valid and architecturally correct. No rule logic changes were required. The update was comment-only in `firestore.rules` and documentation-only in this ledger.
+  - Notes: The rules file intentionally denies browser access because same-origin Route Handlers plus Firebase Admin SDK are the actual trusted runtime. The comments now say that explicitly and note the named-database deployment path from `firebase.json`.
+
+- 2026-04-01 | Mandatory Non-Admin Profile Completion Gate
+  - What was done: Added a server-authoritative profile completion gate for authenticated non-admin users. Google-authenticated users now receive a real session cookie, but if the stored profile is incomplete they are redirected to `/settings` and blocked from `/`, `/assessment`, `/infographic`, uploads, assessment generation, infographic generation, and protected generation reads until the profile is validated, saved, and re-read from the server.
+  - Notes: Required fields are `fullName`, `universityCode`, `profileCompleted`, and `profileCompletedAt`. Firestore and Storage rules remain deny-all for browser clients.
+
+- 2026-04-01 | Admin Auth Hardening And Separate Admin Login Flow
+  - What was done: Added a dedicated `/admin/login` experience, kept `/login` Google-only for regular users, introduced server-side admin identifier resolution for `elmahdy` and `alahlyeagle`, blocked allowlisted admins from the normal bootstrap flow, enforced allowlisted-email plus `admin: true` custom claims for admin access, and added an Admin SDK password-rotation script for the requested shared-password workflow.
+  - Notes: Admin authority now comes from verified session cookie claims plus allowlisted identity, not from client checks alone.
+
+- 2026-04-01 | Ledger Correction And Phase 0 Workspace Normalization
+  - What was done: Converted the root into a truthful npm-workspaces monorepo, corrected stale build/lint/typecheck scripts, moved shared config into packages, and cleaned misleading ownership assumptions left over from a deleted root Next app.
+
+- 2026-04-01 | Phase 1 Through Phase 3 App Router And API Implementation
+  - What was done: Built the App Router shell, public/protected/admin route structure, same-origin Route Handlers, upload/assessment/infographic/admin UI, and core server-side repository/runtime modules in `apps/web`.
+
+- 2026-04-01 | Firebase Deployment Assets Added
+  - What was done: Added root Firebase deployment config, named-database Firestore rules/indexes config, and Storage rules for the current server-authoritative access model.
+
+- 2026-04-01 | Workspace Install And Verification
+  - What was done: Refreshed workspace dependencies and verified the workspace through root `lint`, `build`, and `typecheck` after the major runtime implementation pass.
+
+- 2026-04-01 | Root Versus apps/web Ownership Cleanup
+  - What was done: Removed accidental root Next.js ownership leftovers and re-centered the repo around `apps/web` as the only active Next.js app.
+
+- 2026-04-01 | Artifact Cleanup And Boundary Hardening
+  - What was done: Hardened the server-only Firebase Admin boundary and cleaned misleading generated/starter artifacts.
+
+- 2026-04-01 | Firebase Admin Claims And Isolation Hardening
+  - What was done: Added canonical Firebase Admin env handling, bootstrap/admin scripts, claims-first admin enforcement, UID-aware repository access, and deny-all browser Rules for Firestore and Storage.

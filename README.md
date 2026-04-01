@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zootopia Club Next
 
-## Getting Started
+Zootopia Club Next is the simplified 2026 monorepo rebuild of the Zootopia Club platform.
 
-First, run the development server:
+## Monorepo
+
+- `apps/web`: canonical Next.js 16.2.2 App Router application inside the monorepo
+- `apps/api`: future extraction boundary, no live traffic in the current runtime shape
+- `packages/shared-config`: app constants, routes, feature flags, model catalog
+- `packages/shared-types`: shared request, response, auth, document, assessment, infographic, and admin types
+- `packages/shared-utils`: pure helpers, RTL helpers, upload policy, validation
+- `firebase`: Firestore and Storage rules
+
+The project root is the monorepo manager only. It intentionally does not act as a second Next.js app.
+
+## Product Scope
+
+- Google Sign-In
+- Home, Assessment, Infographic, Settings
+- Admin overview and users management
+- Light and dark mode
+- Arabic and English
+- File upload and document extraction
+- Provider and model switching
+
+Excluded from the initial build:
+
+- Billing and unlock systems
+- Inbox or communication center
+- Live voice, chatbot, study tools, video generation
+- Legacy Firebase Hosting + Cloud Run deployment assumptions as the default mental model
+
+## Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run typecheck
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deployment Paths
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Active repo target: Firebase Hosting, with `firebase.json` pointing Hosting at `apps/web`
+- `apps/web` remains the only canonical Next.js app inside the monorepo
+- Legacy reference only: Firebase Hosting + Cloud Run
+- App Hosting remains documented in the guide/history, but is not the active repo deployment config after this cleanup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Official Firebase docs currently say:
+- Firebase Hosting framework support for Next.js is a preview path
+- new participation in the Hosting frameworks experiment is closed
+- Firebase recommends App Hosting for new full-stack Next.js apps
 
-## Learn More
+This repo keeps the requested Firebase Hosting-first ownership model for now, but tracks that official recommendation as an architectural risk.
 
-To learn more about Next.js, take a look at the following resources:
+## Environment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Important runtime groups:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Public web env: `NEXT_PUBLIC_FIREBASE_*`
+- Server env: Firebase Admin credentials, admin email config, AI provider keys, Datalab credentials
+- Firestore target: `zootopia-club-next-database`
 
-## Deploy on Vercel
+## Docs
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Main project guide: [Guide-Files/Zootopia_Club_Next_16_2_2_Simplified_Monorepo_Guide_2026_WORKSPACE_UPDATED.md](C:/zootopia-club-next/Guide-Files/Zootopia_Club_Next_16_2_2_Simplified_Monorepo_Guide_2026_WORKSPACE_UPDATED.md)
+- Architecture notes: [docs/architecture.md](C:/zootopia-club-next/docs/architecture.md)
+- Ledger: [zootopia-club-next-ledger.txt](C:/zootopia-club-next/zootopia-club-next-ledger.txt)

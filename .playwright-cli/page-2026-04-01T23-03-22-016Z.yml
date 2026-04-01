@@ -1,0 +1,51 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img "Zootopia Club" [ref=e6]
+        - generic [ref=e15]: Zootopia Club
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Theme
+          - generic [ref=e19]:
+            - 'button "Theme: Light" [ref=e20]': Light
+            - 'button "Theme: Dark" [ref=e21]': Dark
+            - 'button "Theme: System" [pressed] [ref=e22]': System
+        - generic [ref=e23]:
+          - paragraph [ref=e24]: Language
+          - generic [ref=e25]:
+            - 'button "Language: English" [pressed] [ref=e26]': English
+            - 'button "Language: Arabic" [ref=e27]': Arabic
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - img "Admin Dashboard" [ref=e31]
+        - generic [ref=e33]:
+          - paragraph [ref=e34]: Restricted entry
+          - heading "Protected access for the Zootopia Club control center." [level=1] [ref=e35]
+          - paragraph [ref=e36]: Claims-verified admin entry for operations and account governance.
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - paragraph [ref=e41]: Use your allowlisted admin identity to continue.
+          - generic [ref=e42]:
+            - img [ref=e44]
+            - generic [ref=e46]:
+              - paragraph [ref=e47]: Admin sign-in isn’t available here yet
+              - paragraph [ref=e48]: Required web sign-in configuration is still missing in this environment.
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: Admin email or username
+              - textbox "Admin email or username" [ref=e52]:
+                - /placeholder: elmahdy or elmahdy@admin.com
+            - generic [ref=e53]:
+              - generic [ref=e54]: Admin password
+              - textbox "Admin password" [ref=e55]:
+                - /placeholder: Enter your admin password
+            - button "Admin sign-in unavailable" [disabled] [ref=e56]
+            - link "Return to student sign-in" [ref=e57] [cursor=pointer]:
+              - /url: /login
+              - img [ref=e58]
+              - generic [ref=e61]: Return to student sign-in
+        - group [ref=e62]:
+          - generic "Admin access notes" [ref=e63]:
+            - text: Admin access notes
+            - img [ref=e64]
