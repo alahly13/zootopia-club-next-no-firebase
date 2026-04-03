@@ -18,13 +18,13 @@ import {
 import {
   BrainCircuit,
   Check,
-  ChevronDown,
   ExternalLink,
   FileText,
   Gauge,
   Languages,
   Layers3,
   Percent,
+  RefreshCcw,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +33,7 @@ import { useEffect, useState } from "react";
 
 import type { AppMessages } from "@/lib/messages";
 
+import { AssessmentFieldSelect } from "@/components/assessment/assessment-field-select";
 import { DocumentContextCard } from "@/components/document/document-context-card";
 
 type AssessmentStudioProps = {
@@ -184,7 +185,7 @@ function getModelChipClasses(tone: AssessmentModelTone) {
     case "muted":
       return "border border-border-strong bg-background-strong text-foreground-muted";
     default:
-      return "bg-violet-500/10 text-violet-700 dark:text-violet-200";
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
   }
 }
 
@@ -283,9 +284,6 @@ export function AssessmentStudio({
   const [request, setRequest] = useState<AssessmentRequest>(() =>
     createInitialRequest(locale, models, initialActiveDocumentId),
   );
-  const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(
-    initialGenerations[0]?.id ?? null,
-  );
   const [pending, setPending] = useState(false);
   const [readbackId, setReadbackId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -296,13 +294,6 @@ export function AssessmentStudio({
 
   useEffect(() => {
     setGenerations(initialGenerations);
-    setSelectedGenerationId((current) => {
-      if (current && initialGenerations.some((item) => item.id === current)) {
-        return current;
-      }
-
-      return initialGenerations[0]?.id ?? null;
-    });
   }, [initialGenerations]);
 
   useEffect(() => {
@@ -326,13 +317,45 @@ export function AssessmentStudio({
   const selectedDocument = documentOptions.find((item) => item.id === request.documentId);
   const latestDocument =
     documentOptions.find((document) => document.isActive) ?? documentOptions[0] ?? null;
-  const latestGeneration =
-    generations.find((item) => item.id === selectedGenerationId) ?? generations[0] ?? null;
+  const latestGeneration = generations[0] ?? null;
   const linkedDocumentReady = !selectedDocument || selectedDocument.status === "ready";
   const questionTypeCountMap = buildQuestionTypeCountMap(
     request.options.questionCount,
     request.options.questionTypeDistribution,
   );
+  const questionCountOptions = QUESTION_COUNT_OPTIONS.map((count) => ({
+    value: count,
+    label: `${count} ${messages.assessmentQuestionsLabel}`,
+  }));
+  const difficultyOptions = [
+    { value: "easy" as const, label: messages.difficultyEasy },
+    { value: "medium" as const, label: messages.difficultyMedium },
+    { value: "hard" as const, label: messages.difficultyHard },
+  ];
+  const languageOptions = [
+    { value: "en" as const, label: messages.localeEnglish },
+    { value: "ar" as const, label: messages.localeArabic },
+  ];
+  const modelOptions = models.map((model) => ({
+    value: model.id,
+    label: model.label,
+    description: getAssessmentModelMeta(model.id, messages)
+      .map((chip) => chip.label)
+      .join(" • "),
+  }));
+  const documentSelectOptions = [
+    {
+      value: "",
+      label: messages.noLinkedDocument,
+      description: messages.documentContextManageHelp,
+    },
+    ...documentOptions.map((document) => ({
+      value: document.id,
+      label: document.fileName,
+      description: getDocumentStatusLabel(document.status, messages),
+      badge: document.isActive ? messages.assessmentActiveLinkedDocument : undefined,
+    })),
+  ];
 
   function handleToggleQuestionType(type: AssessmentQuestionType) {
     setFieldErrors((current) => ({
@@ -416,8 +439,7 @@ export function AssessmentStudio({
     });
   }
 
-  async function handleSelectGeneration(id: string) {
-    setSelectedGenerationId(id);
+  async function handleRefreshGeneration(id: string) {
     setReadbackId(id);
     setError(null);
     setNotice(null);
@@ -433,7 +455,6 @@ export function AssessmentStudio({
       }
 
       setGenerations((current) => replaceGeneration(current, payload.data));
-      setSelectedGenerationId(payload.data.id);
     } catch (nextError) {
       setError(
         nextError instanceof Error
@@ -478,6 +499,17 @@ export function AssessmentStudio({
       return;
     }
 
+    // The prompt now acts as an optional steering note. We still block empty-content submissions
+    // so Assessment always has either user intent text or a linked server-owned document to work from.
+    if (!request.prompt.trim() && !request.documentId) {
+      setFieldErrors({
+        prompt: messages.assessmentPromptOrDocumentRequired,
+        documentId: messages.assessmentPromptOrDocumentRequired,
+      });
+      setPending(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/assessment", {
         method: "POST",
@@ -497,7 +529,6 @@ export function AssessmentStudio({
       }
 
       setGenerations((current) => replaceGeneration(current, payload.data));
-      setSelectedGenerationId(payload.data.id);
       setLastCreatedGeneration(payload.data);
       setNotice(messages.assessmentRequestSaved);
     } catch (nextError) {
@@ -512,16 +543,16 @@ export function AssessmentStudio({
   }
 
   return (
-    <div className="space-y-8 animate-float translate-y-0">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-        <section className="assessment-premium-panel relative overflow-hidden rounded-[2rem] p-5 shadow-sm sm:p-6 lg:p-8">
+    <div className="space-y-8">
+      <div className="grid gap-6">
+        <section className="assessment-premium-panel relative isolate overflow-visible rounded-[2rem] p-5 shadow-sm sm:p-6 lg:p-8">
           <div className="relative z-10 space-y-6">
             <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] dark:text-violet-200">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] dark:text-emerald-200">
                 <BrainCircuit className="h-5 w-5" />
               </div>
               <div className="min-w-0 space-y-1">
-                <p className="section-label text-violet-600 dark:text-violet-300">
+                <p className="section-label text-emerald-700 dark:text-emerald-200">
                   {messages.assessmentTitle}
                 </p>
                 <h2 className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-foreground">
@@ -530,34 +561,10 @@ export function AssessmentStudio({
               </div>
             </div>
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div className="group">
-                <label
-                  htmlFor="assessment-prompt"
-                  className="field-label transition-colors group-focus-within:text-violet-600 dark:group-focus-within:text-violet-300"
-                >
-                  {messages.assessmentPromptLabel}
-                </label>
-                <textarea
-                  id="assessment-prompt"
-                  value={request.prompt}
-                  required
-                  rows={5}
-                  placeholder={messages.assessmentPromptPlaceholder}
-                  onChange={(event) => {
-                    setFieldErrors((current) => ({ ...current, prompt: "" }));
-                    setRequest((current) => ({ ...current, prompt: event.target.value }));
-                  }}
-                  className="field-control assessment-premium-field min-h-[148px] resize-y"
-                />
-                {fieldErrors.prompt ? (
-                  <p className="mt-2 text-sm text-danger">{fieldErrors.prompt}</p>
-                ) : null}
-              </div>
-
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-white/[0.02]">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-200">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-200">
                     <BrainCircuit className="h-4 w-4" />
                   </div>
                   <p className="field-label mb-0">{messages.assessmentModeLabel}</p>
@@ -598,167 +605,100 @@ export function AssessmentStudio({
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="group">
-                  <label
-                    htmlFor="assessment-count"
-                    className="field-label transition-colors group-focus-within:text-violet-600 dark:group-focus-within:text-violet-300"
-                  >
-                    {messages.assessmentQuestionCount}
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="assessment-count"
-                      value={request.options.questionCount}
-                      onChange={(event) => {
-                        setFieldErrors((current) => ({ ...current, questionCount: "" }));
-                        setRequest((current) => ({
-                          ...current,
-                          options: {
-                            ...current.options,
-                            questionCount: Number(event.target.value),
-                          },
-                        }));
-                      }}
-                      className="field-control assessment-premium-field appearance-none pe-11"
-                    >
-                      {QUESTION_COUNT_OPTIONS.map((count) => (
-                        <option key={count} value={count}>
-                          {count}
-                        </option>
-                      ))}
-                    </select>
-                    <Gauge className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500/70 dark:text-violet-300/80" />
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" />
-                  </div>
-                  {fieldErrors.questionCount ? (
-                    <p className="mt-2 text-sm text-danger">{fieldErrors.questionCount}</p>
-                  ) : null}
-                </div>
+                <AssessmentFieldSelect
+                  id="assessment-count"
+                  label={messages.assessmentQuestionCount}
+                  value={request.options.questionCount}
+                  options={questionCountOptions}
+                  icon={Gauge}
+                  error={fieldErrors.questionCount}
+                  onChange={(nextValue) => {
+                    setFieldErrors((current) => ({ ...current, questionCount: "" }));
+                    setRequest((current) => ({
+                      ...current,
+                      options: {
+                        ...current.options,
+                        questionCount: nextValue,
+                      },
+                    }));
+                  }}
+                />
 
-                <div className="group">
-                  <label
-                    htmlFor="assessment-difficulty"
-                    className="field-label transition-colors group-focus-within:text-violet-600 dark:group-focus-within:text-violet-300"
-                  >
-                    {messages.assessmentDifficulty}
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="assessment-difficulty"
-                      value={request.options.difficulty}
-                      onChange={(event) => {
-                        setFieldErrors((current) => ({ ...current, difficulty: "" }));
-                        setRequest((current) => ({
-                          ...current,
-                          options: {
-                            ...current.options,
-                            difficulty: event.target.value as AssessmentDifficulty,
-                          },
-                        }));
-                      }}
-                      className="field-control assessment-premium-field appearance-none pe-11"
-                    >
-                      <option value="easy">{messages.difficultyEasy}</option>
-                      <option value="medium">{messages.difficultyMedium}</option>
-                      <option value="hard">{messages.difficultyHard}</option>
-                    </select>
-                    <FileText className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500/70 dark:text-violet-300/80" />
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" />
-                  </div>
-                  {fieldErrors.difficulty ? (
-                    <p className="mt-2 text-sm text-danger">{fieldErrors.difficulty}</p>
-                  ) : null}
-                </div>
+                <AssessmentFieldSelect
+                  id="assessment-difficulty"
+                  label={messages.assessmentDifficulty}
+                  value={request.options.difficulty}
+                  options={difficultyOptions}
+                  icon={FileText}
+                  error={fieldErrors.difficulty}
+                  onChange={(nextValue) => {
+                    setFieldErrors((current) => ({ ...current, difficulty: "" }));
+                    setRequest((current) => ({
+                      ...current,
+                      options: {
+                        ...current.options,
+                        difficulty: nextValue,
+                      },
+                    }));
+                  }}
+                />
 
-                <div className="group">
-                  <label
-                    htmlFor="assessment-language"
-                    className="field-label transition-colors group-focus-within:text-violet-600 dark:group-focus-within:text-violet-300"
-                  >
-                    {messages.assessmentLanguage}
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="assessment-language"
-                      value={request.options.language}
-                      onChange={(event) => {
-                        setFieldErrors((current) => ({ ...current, language: "" }));
-                        setRequest((current) => ({
-                          ...current,
-                          options: {
-                            ...current.options,
-                            language: event.target.value as Locale,
-                          },
-                        }));
-                      }}
-                      className="field-control assessment-premium-field appearance-none pe-11"
-                    >
-                      <option value="en">{messages.localeEnglish}</option>
-                      <option value="ar">{messages.localeArabic}</option>
-                    </select>
-                    <Languages className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500/70 dark:text-violet-300/80" />
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" />
-                  </div>
-                  {fieldErrors.language ? (
-                    <p className="mt-2 text-sm text-danger">{fieldErrors.language}</p>
-                  ) : null}
-                </div>
+                <AssessmentFieldSelect
+                  id="assessment-language"
+                  label={messages.assessmentLanguage}
+                  value={request.options.language}
+                  options={languageOptions}
+                  icon={Languages}
+                  error={fieldErrors.language}
+                  onChange={(nextValue) => {
+                    setFieldErrors((current) => ({ ...current, language: "" }));
+                    setRequest((current) => ({
+                      ...current,
+                      options: {
+                        ...current.options,
+                        language: nextValue,
+                      },
+                    }));
+                  }}
+                />
 
-                <div className="group">
-                  <label
-                    htmlFor="assessment-model"
-                    className="field-label transition-colors group-focus-within:text-violet-600 dark:group-focus-within:text-violet-300"
-                  >
-                    {messages.modelLabel}
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="assessment-model"
-                      value={request.modelId}
-                      onChange={(event) => {
-                        setFieldErrors((current) => ({ ...current, modelId: "" }));
-                        setRequest((current) => ({ ...current, modelId: event.target.value }));
-                      }}
-                      className="field-control assessment-premium-field appearance-none pe-11 font-mono text-sm"
-                    >
-                      {models.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.label}
-                        </option>
-                      ))}
-                    </select>
-                    <Sparkles className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500/70 dark:text-violet-300/80" />
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" />
-                  </div>
-                  {selectedModel ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {getAssessmentModelMeta(selectedModel.id, messages).map((chip) => (
-                        <span
-                          key={`${selectedModel.id}-${chip.label}`}
-                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getModelChipClasses(chip.tone)}`}
-                        >
-                          {chip.label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {fieldErrors.modelId ? (
-                    <p className="mt-2 text-sm text-danger">{fieldErrors.modelId}</p>
-                  ) : null}
-                </div>
+                <AssessmentFieldSelect
+                  id="assessment-model"
+                  label={messages.modelLabel}
+                  value={request.modelId}
+                  options={modelOptions}
+                  icon={Sparkles}
+                  error={fieldErrors.modelId}
+                  onChange={(nextValue) => {
+                    setFieldErrors((current) => ({ ...current, modelId: "" }));
+                    setRequest((current) => ({ ...current, modelId: nextValue }));
+                  }}
+                />
               </div>
+              {selectedModel ? (
+                <div className="-mt-1 flex flex-wrap gap-2">
+                  {getAssessmentModelMeta(selectedModel.id, messages).map((chip) => (
+                    <span
+                      key={`${selectedModel.id}-${chip.label}`}
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getModelChipClasses(chip.tone)}`}
+                    >
+                      {chip.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-white/[0.02]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-200">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-200">
                       <Layers3 className="h-4 w-4" />
                     </div>
                     <div>
                       <p className="field-label mb-0">{messages.assessmentQuestionTypesLabel}</p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center rounded-full border border-violet-500/15 bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-200">
+                  <span className="inline-flex items-center rounded-full border border-emerald-500/15 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
                     {request.options.questionTypes.length}
                   </span>
                 </div>
@@ -792,7 +732,7 @@ export function AssessmentStudio({
               <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-white/[0.02]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/10 text-gold">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/12 text-gold">
                       <Percent className="h-4 w-4" />
                     </div>
                     <p className="field-label mb-0">{messages.assessmentDistributionLabel}</p>
@@ -823,7 +763,7 @@ export function AssessmentStudio({
                                 {questionTypeCountMap[entry.type] ?? 0} {messages.assessmentQuestionsLabel}
                               </span>
                               {locked ? (
-                                <span className="inline-flex items-center rounded-full border border-violet-500/15 bg-violet-500/10 px-2.5 py-0.5 text-xs font-semibold text-violet-700 dark:text-violet-200">
+                                <span className="inline-flex items-center rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
                                   {messages.assessmentAutoLabel}
                                 </span>
                               ) : null}
@@ -859,44 +799,56 @@ export function AssessmentStudio({
                 ) : null}
               </div>
 
-              <div className="group">
-                <label
-                  htmlFor="assessment-document"
-                  className="field-label transition-colors group-focus-within:text-violet-600 dark:group-focus-within:text-violet-300"
-                >
-                  {messages.documentContextLabel}
-                </label>
-                <div className="relative">
-                  <select
-                    id="assessment-document"
-                    value={request.documentId || ""}
-                    onChange={(event) => {
-                      setFieldErrors((current) => ({ ...current, documentId: "" }));
-                      setRequest((current) => ({
-                        ...current,
-                        documentId: event.target.value || undefined,
-                      }));
-                    }}
-                    className="field-control assessment-premium-field appearance-none pe-11"
-                  >
-                    <option value="">{messages.noLinkedDocument}</option>
-                    {documentOptions.map((document) => (
-                      <option key={document.id} value={document.id}>
-                        {`${document.fileName} - ${getDocumentStatusLabel(document.status, messages)}${document.isActive ? ` - ${messages.assessmentActiveLinkedDocument}` : ""}`}
-                      </option>
-                    ))}
-                  </select>
-                  <FileText className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500/70 dark:text-violet-300/80" />
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" />
+              <div className="rounded-[1.5rem] border border-white/10 bg-black/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-white/[0.02]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="field-label mb-0">{messages.assessmentPromptLabel}</p>
+                  <span className="inline-flex items-center rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-200">
+                    {messages.assessmentPromptOptionalBadge}
+                  </span>
                 </div>
+                <p className="mt-2 text-sm leading-6 text-foreground-muted">
+                  {messages.assessmentPromptHelper}
+                </p>
+                <textarea
+                  id="assessment-prompt"
+                  value={request.prompt}
+                  rows={4}
+                  placeholder={messages.assessmentPromptPlaceholder}
+                  onChange={(event) => {
+                    setFieldErrors((current) => ({ ...current, prompt: "" }));
+                    setRequest((current) => ({ ...current, prompt: event.target.value }));
+                  }}
+                  className="field-control assessment-premium-field mt-4 min-h-[132px] resize-y"
+                />
+                {fieldErrors.prompt ? (
+                  <p className="mt-2 text-sm text-danger">{fieldErrors.prompt}</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-3">
+                <AssessmentFieldSelect
+                  id="assessment-document"
+                  label={messages.documentContextLabel}
+                  value={request.documentId || ""}
+                  options={documentSelectOptions}
+                  icon={FileText}
+                  error={fieldErrors.documentId}
+                  onChange={(nextValue) => {
+                    setFieldErrors((current) => ({ ...current, documentId: "" }));
+                    setRequest((current) => ({
+                      ...current,
+                      documentId: nextValue || undefined,
+                    }));
+                  }}
+                />
                 {selectedDocument ? (
-                  <div className="mt-3 rounded-[1.25rem] border border-white/10 bg-background/65 px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="rounded-[1.25rem] border border-white/10 bg-background/65 px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="break-words font-medium text-foreground">
                         {selectedDocument.fileName}
                       </p>
                       {selectedDocument.isActive ? (
-                        <span className="inline-flex rounded-full border border-violet-500/15 bg-violet-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700 dark:text-violet-200">
+                        <span className="inline-flex rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-200">
                           {messages.assessmentActiveLinkedDocument}
                         </span>
                       ) : null}
@@ -908,26 +860,23 @@ export function AssessmentStudio({
                     </p>
                   </div>
                 ) : null}
-                {fieldErrors.documentId ? (
-                  <p className="mt-2 text-sm text-danger">{fieldErrors.documentId}</p>
-                ) : null}
               </div>
 
               {notice ? (
-                <div className="rounded-[1.25rem] border border-violet-500/15 bg-violet-500/10 px-4 py-3 text-sm text-foreground">
+                <div className="rounded-[1.25rem] border border-emerald-500/15 bg-emerald-500/10 px-4 py-3 text-sm text-foreground">
                   <p>{notice}</p>
                   {lastCreatedGeneration ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Link
                         href={lastCreatedGeneration.previewRoute}
-                        className="inline-flex items-center gap-2 rounded-full border border-violet-500/15 bg-white/70 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-white dark:bg-white/10 dark:text-violet-100 dark:hover:bg-white/15"
+                        className="inline-flex items-center gap-2 rounded-full border border-emerald-500/15 bg-white/70 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-white dark:bg-white/10 dark:text-emerald-100 dark:hover:bg-white/15"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         {messages.assessmentOpenPreview}
                       </Link>
                       <Link
                         href={lastCreatedGeneration.resultRoute}
-                        className="inline-flex items-center gap-2 rounded-full border border-violet-500/15 bg-white/70 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-white dark:bg-white/10 dark:text-violet-100 dark:hover:bg-white/15"
+                        className="inline-flex items-center gap-2 rounded-full border border-emerald-500/15 bg-white/70 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-white dark:bg-white/10 dark:text-emerald-100 dark:hover:bg-white/15"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         {messages.assessmentOpenResult}
@@ -946,7 +895,7 @@ export function AssessmentStudio({
                 type="submit"
                 disabled={
                   pending ||
-                  !request.prompt.trim() ||
+                  (!request.prompt.trim() && !request.documentId) ||
                   !linkedDocumentReady ||
                   request.options.questionTypes.length === 0
                 }
@@ -959,133 +908,6 @@ export function AssessmentStudio({
           </div>
         </section>
 
-        <section className="flex flex-col rounded-[2rem] border border-white/10 bg-background-elevated/90 p-5 shadow-sm backdrop-blur-xl sm:p-6 lg:p-8">
-          <p className="section-label">{messages.assessmentLatestTitle}</p>
-
-          <div className="mt-6 flex-1">
-            {pending && !latestGeneration ? (
-              <div className="rounded-2xl border border-dashed border-border bg-background/30 p-8 text-center">
-                <div className="mx-auto h-10 w-10 loading-spinner" />
-                <p className="mt-4 font-semibold text-foreground">
-                  {messages.assessmentLoadingTitle}
-                </p>
-                <p className="mt-1 text-sm text-foreground-muted">
-                  {messages.assessmentLoadingBody}
-                </p>
-              </div>
-            ) : latestGeneration ? (
-              <div className="space-y-5">
-                <div>
-                  <h3 className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-foreground">
-                    {latestGeneration.title}
-                  </h3>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-semibold text-accent">
-                      {`${latestGeneration.meta.questionCount} ${messages.assessmentQuestionsLabel}`}
-                    </span>
-                    <span className="inline-flex items-center rounded-full bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold">
-                      {getDifficultyLabel(latestGeneration.meta.difficulty, messages)}
-                    </span>
-                    <span className="inline-flex items-center rounded-full border border-border-strong bg-background-strong px-2.5 py-0.5 text-xs font-semibold text-foreground-muted">
-                      {getLanguageLabel(latestGeneration.meta.language, messages)}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-foreground-muted">
-                    {latestGeneration.meta.summary}
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Link
-                      href={latestGeneration.previewRoute}
-                      className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-background-strong px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-accent hover:text-accent"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      {messages.assessmentOpenPreview}
-                    </Link>
-                    <Link
-                      href={latestGeneration.resultRoute}
-                      className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-background-strong px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-accent hover:text-accent"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      {messages.assessmentOpenResult}
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-border bg-background-strong p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-foreground-muted">
-                      {messages.assessmentPromptPreviewLabel}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-foreground">
-                      {latestGeneration.meta.promptPreview || messages.assessmentNoPromptPreview}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-background-strong p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-foreground-muted">
-                      {messages.assessmentSourceDocument}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-foreground">
-                      {latestGeneration.meta.sourceDocument?.fileName || messages.noLinkedDocument}
-                    </p>
-                    <p className="mt-1 text-xs text-foreground-muted">
-                      {latestGeneration.meta.modelLabel} • {formatAssessmentDate(latestGeneration.createdAt, locale)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="side-scrollbar space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                  {latestGeneration.questions.map((question, index) => (
-                    <article
-                      key={`${latestGeneration.id}-${question.id}`}
-                      className="rounded-[1.5rem] border border-border-strong bg-background-strong p-5"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex shrink-0 flex-col items-center gap-2">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">
-                            {index + 1}
-                          </span>
-                          {question.type ? (
-                            <span className="inline-flex items-center rounded-full border border-violet-500/15 bg-violet-500/10 px-2 py-0.5 text-[11px] font-semibold text-violet-700 dark:text-violet-200">
-                              {getQuestionTypeLabel(question.type, messages)}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-3">
-                          <p className="whitespace-pre-wrap text-[0.95rem] font-semibold leading-relaxed text-foreground">
-                            {question.question}
-                          </p>
-                          <div className="rounded-xl border border-border bg-foreground-muted/5 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-foreground-muted">
-                              {messages.assessmentAnswerLabel}
-                            </p>
-                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground-muted">
-                              {question.answer}
-                            </p>
-                          </div>
-                          {question.rationale ? (
-                            <p className="text-sm leading-6 text-foreground-muted">
-                              <span className="font-semibold text-foreground">
-                                {`${messages.assessmentRationaleLabel}: `}
-                              </span>
-                              {question.rationale}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center bg-background/30">
-                <p className="font-medium text-foreground-muted">{messages.assessmentEmpty}</p>
-                <p className="text-sm text-foreground-muted/70 mt-1 max-w-[280px]">
-                  {messages.assessmentEmptyStateBody}
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
       </div>
 
       <DocumentContextCard
@@ -1112,42 +934,79 @@ export function AssessmentStudio({
             </div>
           ) : (
             <div className="grid gap-3">
-              {generations.map((generation) => (
-                <button
+              {generations.map((generation, index) => (
+                <article
                   key={generation.id}
-                  type="button"
-                  onClick={() => {
-                    void handleSelectGeneration(generation.id);
-                  }}
-                  className={`group flex w-full flex-col justify-between gap-4 rounded-xl border px-6 py-4 text-start transition-all md:flex-row md:items-center ${
+                  className={`rounded-[1.4rem] border px-5 py-4 transition-all sm:px-6 ${
                     generation.id === latestGeneration?.id
-                      ? "border-accent bg-accent/5 shadow-sm"
-                      : "border-border bg-background-elevated hover:border-accent hover:shadow-sm"
+                      ? "border-emerald-500/20 bg-emerald-500/5 shadow-sm"
+                      : "border-border bg-background-elevated/80 hover:border-emerald-500/15 hover:shadow-sm"
                   }`}
                 >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-foreground group-hover:text-accent transition-colors">
-                      {generation.title}
-                    </p>
-                    <p className="mt-1 text-sm text-foreground-muted">
-                      {generation.meta.summary}
-                    </p>
-                    <p className="mt-2 text-xs text-foreground-muted">
-                      {`${generation.meta.questionCount} ${messages.assessmentQuestionsLabel} • ${getLanguageLabel(generation.meta.language, messages)} • ${formatAssessmentDate(generation.createdAt, locale)}`}
-                    </p>
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-foreground">
+                          {generation.title}
+                        </p>
+                        {index === 0 ? (
+                          <span className="inline-flex items-center rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-200">
+                            {messages.assessmentGeneratedLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-foreground-muted">
+                        {generation.meta.summary}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-semibold text-accent">
+                          {`${generation.meta.questionCount} ${messages.assessmentQuestionsLabel}`}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold">
+                          {getDifficultyLabel(generation.meta.difficulty, messages)}
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-border-strong bg-background-strong px-2.5 py-0.5 text-xs font-semibold text-foreground-muted">
+                          {getLanguageLabel(generation.meta.language, messages)}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-xs text-foreground-muted">
+                        {generation.meta.modelLabel} • {formatAssessmentDate(generation.createdAt, locale)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 xl:max-w-[32rem] xl:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleRefreshGeneration(generation.id);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-background-strong px-3 py-1.5 text-xs font-semibold text-foreground-muted transition hover:border-emerald-500/30 hover:text-emerald-700 dark:hover:text-emerald-200"
+                      >
+                        {readbackId === generation.id ? (
+                          <span className="loading-spinner h-3.5 w-3.5 border-2" />
+                        ) : (
+                          <RefreshCcw className="h-3.5 w-3.5" />
+                        )}
+                        {readbackId === generation.id
+                          ? messages.assessmentReadbackLoading
+                          : messages.assessmentRefreshAction}
+                      </button>
+                      <Link
+                        href={generation.previewRoute}
+                        className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-background-strong px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-emerald-500/30 hover:text-emerald-700 dark:hover:text-emerald-200"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        {messages.assessmentOpenPreview}
+                      </Link>
+                      <Link
+                        href={generation.resultRoute}
+                        className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-background-strong px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-emerald-500/30 hover:text-emerald-700 dark:hover:text-emerald-200"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        {messages.assessmentOpenResult}
+                      </Link>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {readbackId === generation.id ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-background-strong px-3 py-1 text-xs font-semibold text-foreground-muted">
-                        <span className="loading-spinner h-3.5 w-3.5 border-2" />
-                        {messages.assessmentReadbackLoading}
-                      </span>
-                    ) : null}
-                    <span className="inline-flex w-fit items-center rounded-full border border-border-strong bg-background-strong px-3 py-1 font-mono text-xs text-foreground-muted">
-                      {generation.meta.modelLabel}
-                    </span>
-                  </div>
-                </button>
+                </article>
               ))}
             </div>
           )}

@@ -251,8 +251,14 @@ function localizeDifficulty(difficulty: AssessmentDifficulty, language: Locale) 
   return difficulty;
 }
 
-function buildAssessmentTopic(prompt: string, fallback: string, limit: number) {
-  return clampText(prompt, limit) || fallback;
+function buildAssessmentTopic(
+  prompt: string,
+  fallback: string,
+  limit: number,
+  sourceDocument?: AssessmentGenerationSourceDocument | null,
+) {
+  const documentFallback = normalizeOptionalString(sourceDocument?.fileName);
+  return clampText(prompt, limit) || clampText(documentFallback ?? fallback, limit) || fallback;
 }
 
 function buildQuestionFallback(input: {
@@ -366,14 +372,19 @@ export function buildAssessmentPromptPreview(prompt: string) {
   return clampText(prompt, PROMPT_PREVIEW_LIMIT);
 }
 
-export function buildAssessmentTitle(prompt: string, language: Locale) {
+export function buildAssessmentTitle(input: {
+  prompt: string;
+  language: Locale;
+  sourceDocument?: AssessmentGenerationSourceDocument | null;
+}) {
   const topic = buildAssessmentTopic(
-    prompt,
-    language === "ar" ? "موضوع علمي" : "Science topic",
+    input.prompt,
+    input.language === "ar" ? "موضوع علمي" : "Science topic",
     TITLE_TOPIC_LIMIT,
+    input.sourceDocument,
   );
 
-  return language === "ar" ? `تقييم · ${topic}` : `Assessment · ${topic}`;
+  return input.language === "ar" ? `تقييم · ${topic}` : `Assessment · ${topic}`;
 }
 
 export function buildAssessmentSummary(input: {
@@ -389,6 +400,7 @@ export function buildAssessmentSummary(input: {
     input.prompt,
     input.language === "ar" ? "موضوع علمي" : "science topic",
     SUMMARY_TOPIC_LIMIT,
+    input.sourceDocument,
   );
 
   if (input.language === "ar") {
@@ -527,7 +539,11 @@ export function normalizeAssessmentGenerationRecord(
     ownerUid: normalizeWhitespace(String(record.ownerUid || "")),
     title:
       normalizeOptionalString(record.title) ??
-      buildAssessmentTitle(request.prompt, request.options.language),
+      buildAssessmentTitle({
+        prompt: request.prompt,
+        language: request.options.language,
+        sourceDocument,
+      }),
     modelId: model.id,
     status: lifecycle.status,
     expiresAt: lifecycle.expiresAt,

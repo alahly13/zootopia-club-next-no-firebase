@@ -141,6 +141,9 @@ export function buildAssessmentPrompt(input: {
   providerConfigured: boolean;
 }) {
   const documentContext = prepareAssessmentDocumentContext(input.documentContext);
+  const userRequest =
+    input.userPrompt.trim() ||
+    "No extra steering prompt was supplied. Infer the assessment focus from the linked document and generation settings.";
   const lines = [
     "Tool: assessment",
     `Model lane: ${input.modelLabel}`,
@@ -159,7 +162,8 @@ export function buildAssessmentPrompt(input: {
     `Provider runtime configured: ${input.providerConfigured ? "yes" : "no"}`,
     "Authoring instructions: Keep the wording scientifically accurate, concise, and reliable. Each item must include a direct answer, a brief rationale, and one to three short topic tags.",
     describeAssessmentModeRule(input.mode),
-    `User request: ${input.userPrompt}`,
+    // Keep an explicit fallback request in the orchestration prompt so document-only runs still produce focused assessments.
+    `User request: ${userRequest}`,
     `Question type rules: ${input.questionTypes
       .map((type) => describeAssessmentQuestionTypeRule(type))
       .join(" ")}`,

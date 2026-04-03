@@ -17,13 +17,13 @@ type DocumentContextCardProps = {
 const TONE_CLASSES = {
   assessment: {
     shell:
-      "border-violet-500/20 bg-violet-500/[0.04] dark:border-violet-500/15 dark:bg-violet-500/[0.08]",
-    glow: "bg-violet-500/20",
+      "border-emerald-500/20 bg-emerald-500/[0.05] dark:border-emerald-500/15 dark:bg-emerald-500/[0.08]",
+    glow: "bg-emerald-400/20",
     badge:
-      "border border-violet-500/20 bg-violet-500/10 text-violet-700 dark:border-violet-500/15 dark:text-violet-200",
+      "border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/15 dark:text-emerald-200",
     action:
-      "border border-violet-500/25 bg-violet-500/10 text-violet-700 hover:bg-violet-500/15 dark:text-violet-200",
-    icon: "bg-violet-500/10 text-violet-600 dark:text-violet-200",
+      "border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-200",
+    icon: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
   },
   infographic: {
     shell:

@@ -382,10 +382,15 @@ export function validateAssessmentRequest(
   );
   const fieldErrors: AssessmentRequestFieldErrors = {};
 
-  if (!prompt) {
-    fieldErrors.prompt = "Assessment prompt is required.";
-  } else if (prompt.length > 2000) {
+  if (prompt.length > 2000) {
     fieldErrors.prompt = "Assessment prompt must stay under 2000 characters.";
+  }
+
+  // Assessment can now be driven by either a short steering prompt or a linked document.
+  // Keep at least one content source required so the server never receives an empty generation brief.
+  if (!prompt && !documentId) {
+    fieldErrors.prompt = "Add a prompt or link a document before generating an assessment.";
+    fieldErrors.documentId = "Add a prompt or link a document before generating an assessment.";
   }
 
   if (!modelId) {
@@ -450,7 +455,7 @@ export function validateAssessmentRequest(
     return {
       ok: false,
       fieldErrors,
-      message: "Assessment request needs a valid prompt, language, and settings.",
+      message: "Assessment request needs a prompt or linked document, plus valid language and settings.",
     };
   }
 

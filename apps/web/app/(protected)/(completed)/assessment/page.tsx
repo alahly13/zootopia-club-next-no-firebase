@@ -23,12 +23,13 @@ export default async function AssessmentPage() {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[2.5rem] border border-white/20 bg-white/60 p-6 shadow-sm backdrop-blur-xl dark:border-white/5 dark:bg-zinc-950/40 sm:p-8 lg:p-10">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[2.5rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.78),rgba(241,249,247,0.62))] p-6 shadow-sm backdrop-blur-xl dark:border-white/6 dark:bg-[linear-gradient(145deg,rgba(4,12,21,0.72),rgba(3,10,18,0.56))] sm:p-8 lg:p-10">
+        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-emerald-400/18 blur-3xl" />
+        <div className="absolute -bottom-24 left-[-4rem] h-56 w-56 rounded-full bg-sky-400/12 blur-3xl" />
         
         <div className="relative z-10">
           <div className="mb-4 flex items-center gap-3">
-            <span className="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
               <BrainCircuit className="h-3.5 w-3.5" />
               {uiContext.messages.navAssessment}
             </span>

@@ -938,10 +938,11 @@ export async function generateAssessment(input: {
   return {
     id: generationId,
     ownerUid: input.ownerUid,
-    title: buildAssessmentTitle(
-      input.request.prompt,
-      input.request.options.language,
-    ),
+    title: buildAssessmentTitle({
+      prompt: input.request.prompt,
+      language: input.request.options.language,
+      sourceDocument: input.sourceDocument ?? null,
+    }),
     modelId: model.id,
     status: "ready",
     expiresAt: getAssessmentExpiryTimestamp(timestamp),

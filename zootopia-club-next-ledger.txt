@@ -1,5 +1,5 @@
 Zootopia Club Next Master Ledger
-Last refreshed: 2026-04-03
+Last refreshed: 2026-04-03 19:55:29
 
 Project Identity
 - Name: Zootopia Club Next
@@ -27,6 +27,7 @@ Current Truth Snapshot
 - `/assessment` now supports server-normalized mode selection (`question_generation` or `exam_generation`) plus question-type selection and 100%-total percentage distribution inside the existing Assessment request `options` shape, and it now stores owner-scoped result metadata including `status`, `expiresAt`, `previewRoute`, `resultRoute`, and preview/export-friendly summary fields.
 - Assessment generation now prefers the original linked PDF file for Gemini models when Storage still has the binary, then falls back safely to extracted text context for unsupported file/model combinations instead of redesigning the upload pipeline.
 - Assessment results now have two dedicated pages, `/assessment/preview/[id]` and `/assessment/results/[id]`, plus owner-scoped result/export endpoints under `/api/assessment/results/[id]` and `/api/assessment/export/*/[id]`.
+- `/assessment` now uses a single-column configuration studio with Assessment-scoped custom dropdown panels, history-driven preview/result quick actions, and an optional steering prompt that can be left blank when a linked document is selected.
 - Assessment retention is now a lazy 3-day window enforced from normalized metadata; expired results are filtered out of history and return `ASSESSMENT_EXPIRED` from the result/export APIs instead of leaking stale output.
 - Regular user login and admin login are intentionally separate.
 - Admin authority is claims-first: allowlisted email plus Firebase custom claim `admin: true`.
@@ -108,7 +109,8 @@ Current Visual Identity And UI System
 - `apps/web/app/globals.css` now defines the current emerald-and-gold premium scientific visual system, including glass surfaces, hover states, motion tokens, auth-state styling, and shared background/elevation utilities for both light and dark themes.
 - `apps/web/app/layout.tsx` now mounts `apps/web/components/ui/vital-background.tsx`, which provides the animated global glow/noise background layer behind the entire app shell.
 - The current font stack is loaded through `next/font` using Plus Jakarta Sans, Alexandria, Amiri, and JetBrains Mono.
-- `apps/web/app/(protected)/layout.tsx` applies `apps/web/public/my-app-background.png` behind the protected workspace only, with layered gradient and blur overlays; public auth routes keep their own background treatment.
+- `apps/web/app/(protected)/layout.tsx` now mounts `apps/web/components/layout/protected-workspace-background.tsx`, which keeps `apps/web/public/my-app-background.png` scoped to protected routes only and layers subtle dimming, animated grid/orb/beam ambience, and texture without touching public auth backgrounds.
+- `apps/web/components/assessment/assessment-studio.tsx` now uses `apps/web/components/assessment/assessment-field-select.tsx` for Assessment-only dropdown panels and an emerald/cyan/gold studio surface that aligns with the protected shell instead of the older violet-heavy two-column layout.
 - A local shared UI primitive layer now exists in `apps/web/components/ui/button.tsx`, `apps/web/components/ui/input.tsx`, and `apps/web/lib/utils.ts`.
 - The current UX direction is intentionally more visual and less text-heavy than earlier passes, with stronger CTA hierarchy, route-specific accent colors, and glassmorphic card treatments across Home, Upload, Assessment, Infographic, Settings, and Admin.
 - Current page-focus rule: the protected shell is shared, but each major tool page owns only its own page-scale UI. Shared document continuity appears as compact support UI only and no longer duplicates the upload page inside Assessment or Infographic.
@@ -174,12 +176,14 @@ Important Folders And Files
   - `auth/admin-login-panel.tsx`
   - `auth/public-auth-shell.tsx`
   - `auth/sign-out-button.tsx`
+  - `assessment/assessment-field-select.tsx`
   - `document/document-context-card.tsx`
   - `assessment/assessment-export-actions.tsx`
   - `assessment/assessment-preview-shell.tsx`
   - `assessment/assessment-preview-theme-toggle.tsx`
   - `assessment/assessment-result-viewer.tsx`
   - `layout/protected-shell.tsx`
+  - `layout/protected-workspace-background.tsx`
   - `layout/shell-nav.tsx`
   - `settings/profile-settings-form.tsx`
   - `upload/upload-workspace.tsx`
@@ -230,7 +234,7 @@ Route Ownership Clarification
   - owns the full upload and document-preparation surface through `apps/web/app/(protected)/(completed)/upload/page.tsx`
   - is the only route that renders `apps/web/components/upload/upload-workspace.tsx`
 - `/assessment`
-  - owns assessment generation, active linked-document selection, latest-result rendering, assessment history, preview opening, and saved-result opening through `apps/web/app/(protected)/(completed)/assessment/page.tsx` and `apps/web/components/assessment/assessment-studio.tsx`
+  - owns assessment generation, active linked-document selection, optional prompt-driven or document-driven setup, assessment history, and preview/result quick actions through `apps/web/app/(protected)/(completed)/assessment/page.tsx` and `apps/web/components/assessment/assessment-studio.tsx`
   - preview/result ownership is split cleanly across `apps/web/app/(protected)/(completed)/assessment/preview/[id]/page.tsx`, `apps/web/app/(protected)/(completed)/assessment/results/[id]/page.tsx`, and the shared viewer/export components under `apps/web/components/assessment/*`
   - does not render the full upload workspace
 - `/infographic`
@@ -673,6 +677,33 @@ Generated Artifacts And Non-Source-Of-Truth Paths
 - These files may exist locally after builds or verification runs and should not be used to infer runtime architecture
 
 Change Log
+- 2026-04-03 19:55:29 | Protected Workspace Background Refinement And Assessment Studio Polish
+  - Root cause addressed: The protected workspace still relied on a thin inline background treatment, while the Assessment studio kept a distracting float animation, violet-heavy surfaces, native select controls, a required top-of-form prompt, and a right-side `Latest output` panel that constrained the main form and made spacing/overflow issues harder to control cleanly.
+  - What was done: Moved the protected-only workspace background into `apps/web/components/layout/protected-workspace-background.tsx` and wired it through `apps/web/app/(protected)/layout.tsx` so `apps/web/public/my-app-background.png` stays scoped to authenticated routes only. The new layer stack adds subtle dimming, texture, and soft scientific grid/orb/beam ambience with comments that warn future agents not to leak this treatment into public auth routes.
+  - Assessment studio changes: `apps/web/components/assessment/assessment-studio.tsx` now uses a calmer single-column composition, removes the distracting float treatment, deletes the right-side `Latest output` panel, moves the prompt field near the end of the form just before the linked-document section, and restyles the page with emerald/cyan/gold surfaces that align with the protected shell and sidebar without making the page dull or overly dark.
+  - Assessment control and contract changes: Added `apps/web/components/assessment/assessment-field-select.tsx` so Assessment-only dropdowns render above surrounding cards with cleaner spacing, safer z-index behavior, and stronger readability than the old native selects. Prompt input is now optional only when a linked document is present: `packages/shared-utils/src/validation.ts`, `apps/web/lib/server/ai/prompt-orchestrator.ts`, `apps/web/lib/server/assessment-records.ts`, and `apps/web/lib/server/ai/execution.ts` were updated so the server contract, AI prompt construction, and generated assessment titles/summaries remain correct for document-driven runs.
+  - Scope preserved intentionally: Public login/admin login/auth backgrounds were left untouched, no route ownership changed, no backend authority moved to the browser, no new dependencies were added, EN/AR catalogs were kept in sync, and the protected-shell work stayed architecture-sensitive rather than page-hacked.
+  - Changed files:
+    - `apps/web/app/(protected)/layout.tsx`
+    - `apps/web/app/(protected)/(completed)/assessment/page.tsx`
+    - `apps/web/app/globals.css`
+    - `apps/web/components/assessment/assessment-field-select.tsx`
+    - `apps/web/components/assessment/assessment-studio.tsx`
+    - `apps/web/components/document/document-context-card.tsx`
+    - `apps/web/components/layout/protected-workspace-background.tsx`
+    - `apps/web/lib/server/ai/execution.ts`
+    - `apps/web/lib/server/ai/prompt-orchestrator.ts`
+    - `apps/web/lib/server/assessment-records.ts`
+    - `apps/web/messages/en.json`
+    - `apps/web/messages/ar.json`
+    - `packages/shared-utils/src/validation.ts`
+    - `zootopia-club-next-ledger.txt`
+  - Verification:
+    - Root `npm run lint` passed.
+    - Root `npm run build` passed.
+    - Root `npm run typecheck` completed successfully but still printed the known Windows Next type-generation warning: `EPERM` opening `apps/web/.next/types/routes.d.ts`.
+    - Authenticated browser-side visual verification is still pending in this environment because no signed-in protected-session run was available during this pass.
+
 - 2026-04-02 | Premium Scientific Visual System Expansion And Upload Workspace Dark-Glass Refresh
   - What was done: Verified and recorded a broader protected-workspace visual-system pass across the current source tree. `apps/web/app/globals.css` now anchors the premium scientific emerald-and-gold design system, `apps/web/app/layout.tsx` now mounts a motion-backed `VitalBackground`, `apps/web/app/(protected)/layout.tsx` now uses `apps/web/public/my-app-background.png` for the authenticated workspace shell, and a local UI primitive layer now exists in `apps/web/components/ui/button.tsx`, `apps/web/components/ui/input.tsx`, and `apps/web/lib/utils.ts`.
   - Upload workspace specifics: `apps/web/app/(protected)/(completed)/upload/page.tsx` now presents a darker hero upload stage with demoted quick links, while `apps/web/components/upload/upload-workspace.tsx` now uses a modal-like drag/drop card, pseudo-progress visuals, recent-upload preview, import-from-link row, and simplified CTA hierarchy. The current upload surface is intentionally more visual and less text-heavy than the earlier workspace version.
