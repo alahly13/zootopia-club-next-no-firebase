@@ -1,0 +1,7 @@
+
+> @zootopia/web@0.1.0 typecheck
+> next typegen && tsc -p tsconfig.json --noEmit
+
+Generating route types...
+Γ£ô Types generated successfully
+EXIT:0

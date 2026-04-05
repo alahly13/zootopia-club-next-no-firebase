@@ -16,11 +16,10 @@ import {
   getRoleFromAuthClaims,
   upsertUserFromAuth,
 } from "@/lib/server/repository";
+import { getSessionTtlSeconds } from "@/lib/server/session-config";
 import { getSessionCookieOptions } from "@/lib/preferences";
 
 export const runtime = "nodejs";
-
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 5;
 
 export async function POST(request: Request) {
   if (!hasFirebaseAdminRuntime()) {
@@ -43,6 +42,8 @@ export async function POST(request: Request) {
   if (!idToken) {
     return apiError("ID_TOKEN_REQUIRED", "A Firebase ID token is required.", 400);
   }
+
+  const sessionTtlSeconds = getSessionTtlSeconds();
 
   try {
     const auth = getFirebaseAdminAuth();
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
     }
 
     const sessionCookie = await auth.createSessionCookie(idToken, {
-      expiresIn: SESSION_MAX_AGE_SECONDS * 1000,
+      expiresIn: sessionTtlSeconds * 1000,
     });
 
     const response = apiSuccess({
@@ -117,7 +118,7 @@ export async function POST(request: Request) {
     response.cookies.set(
       ENV_KEYS.sessionCookie,
       sessionCookie,
-      getSessionCookieOptions(SESSION_MAX_AGE_SECONDS),
+      getSessionCookieOptions(sessionTtlSeconds),
     );
     await appendAdminLog({
       actorUid: user.uid,
@@ -130,6 +131,7 @@ export async function POST(request: Request) {
       route: "/api/auth/bootstrap",
       metadata: {
         redirectTo: getAuthenticatedUserRedirectPath(user),
+        sessionTtlSeconds,
       },
     });
     return response;

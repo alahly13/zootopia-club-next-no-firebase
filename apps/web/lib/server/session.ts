@@ -13,14 +13,32 @@ import {
 } from "@/lib/return-to";
 import { hasAdminAccessFromClaims } from "@/lib/server/admin-auth";
 import { getFirebaseAdminAuth } from "@/lib/server/firebase-admin";
-import { getRoleFromAuthClaims, upsertUserFromAuth } from "@/lib/server/repository";
+import { getSessionExpiryTimestamp } from "@/lib/server/session-config";
+import {
+  getRoleFromAuthClaims,
+  sweepExpiredUploadedSources,
+  upsertUserFromAuth,
+} from "@/lib/server/repository";
 
 const ANONYMOUS_SESSION: SessionSnapshot = {
   authenticated: false,
   user: null,
 };
 
+function resolveSessionExpiresAt(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return new Date(value * 1000).toISOString();
+  }
+
+  return getSessionExpiryTimestamp();
+}
+
 const getVerifiedSessionContext = cache(async () => {
+  /* Expired-upload cleanup runs opportunistically from the server auth boundary so temporary
+     source files do not linger after session expiry even when users do not revisit protected
+     upload routes. A dedicated scheduler endpoint can force this sweep for tighter guarantees. */
+  await sweepExpiredUploadedSources().catch(() => undefined);
+
   const sessionCookie = (await cookies()).get(ENV_KEYS.sessionCookie)?.value;
   if (!sessionCookie) {
     return null;
@@ -54,6 +72,9 @@ const getVerifiedSessionContext = cache(async () => {
 
     return {
       isAdmin,
+      sessionExpiresAt: resolveSessionExpiresAt(
+        (decodedToken as Record<string, unknown>).exp,
+      ),
       user: {
         uid: user.uid,
         email: user.email,
@@ -85,17 +106,26 @@ export async function getSessionSnapshot(): Promise<SessionSnapshot> {
 }
 
 export async function getAuthenticatedSessionUser() {
-  const session = await getVerifiedSessionContext();
-  if (!session || session.user.status !== "active") {
+  const session = await getAuthenticatedSessionContext();
+  if (!session) {
     return null;
   }
 
   return session.user;
 }
 
-export async function getAdminSessionUser() {
+export async function getAuthenticatedSessionContext() {
   const session = await getVerifiedSessionContext();
-  if (!session || session.user.status !== "active" || !session.isAdmin) {
+  if (!session || session.user.status !== "active") {
+    return null;
+  }
+
+  return session;
+}
+
+export async function getAdminSessionUser() {
+  const session = await getAuthenticatedSessionContext();
+  if (!session || !session.isAdmin) {
     return null;
   }
 

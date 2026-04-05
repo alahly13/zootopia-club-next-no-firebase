@@ -50,6 +50,7 @@ export async function buildAssessmentProPdfResponse(input: AssessmentExportRoute
       themeMode: input.themeMode,
       qrCodeDataUrl,
       autoPrint: false,
+      pageNumberMode: "static-sections",
       /* The Pro lane renders through Puppeteer/Chromium, so public assets need an absolute base
          URL at capture time. Keep this lane-specific concern out of the Fast browser-print lane. */
       documentBaseUrl: input.requestUrl.origin,

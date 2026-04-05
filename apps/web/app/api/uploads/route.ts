@@ -12,15 +12,20 @@ import {
   saveDocument,
   appendAdminLog,
 } from "@/lib/server/repository";
-import { getAuthenticatedSessionUser } from "@/lib/server/session";
+import {
+  getAuthenticatedSessionContext,
+  getAuthenticatedSessionUser,
+} from "@/lib/server/session";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const user = await getAuthenticatedSessionUser();
-  if (!user) {
+  const session = await getAuthenticatedSessionContext();
+  if (!session) {
     return apiError("UNAUTHENTICATED", "Sign in is required for uploads.", 401);
   }
+  const user = session.user;
+
   if (isProfileCompletionRequired(user)) {
     return apiError(
       "PROFILE_INCOMPLETE",
@@ -40,6 +45,9 @@ export async function POST(request: Request) {
     const { document, warnings } = await createDocumentRecord({
       ownerUid: user.uid,
       ownerRole: user.role,
+      /* Uploaded source files are temporary session-workspace assets. Preserve this binding so
+         session-expired uploads can be swept safely without touching retained assessment results. */
+      workspaceExpiresAt: session.sessionExpiresAt,
       fileName: file.name,
       mimeType: file.type,
       sizeBytes: file.size,

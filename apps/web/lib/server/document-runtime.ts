@@ -14,6 +14,21 @@ import {
 } from "@/lib/server/owner-scope";
 import { getRetentionExpiryTimestamp } from "@/lib/server/assessment-retention";
 
+function resolveWorkspaceExpiryTimestamp(input: {
+  createdAt: string;
+  workspaceExpiresAt?: string | null;
+}) {
+  const workspaceExpiryMs = input.workspaceExpiresAt
+    ? Date.parse(input.workspaceExpiresAt)
+    : Number.NaN;
+
+  if (Number.isFinite(workspaceExpiryMs)) {
+    return new Date(workspaceExpiryMs).toISOString();
+  }
+
+  return getRetentionExpiryTimestamp(input.createdAt);
+}
+
 async function tryPersistBinaryToStorage(input: {
   ownerUid: string;
   documentId: string;
@@ -92,6 +107,7 @@ export async function deleteDocumentBinaryFromStorage(record: Pick<
 export async function createDocumentRecord(input: {
   ownerUid: string;
   ownerRole: DocumentRecord["ownerRole"];
+  workspaceExpiresAt?: string | null;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -143,7 +159,12 @@ export async function createDocumentRecord(input: {
       extractionEngine: "direct-file",
       isActive: true,
       supersededAt: null,
-      expiresAt: getRetentionExpiryTimestamp(createdAt),
+      /* Upload binaries are session-scoped workspace assets. This expiry timestamp is now driven
+         by the authenticated session boundary, with retention-window fallback when unavailable. */
+      expiresAt: resolveWorkspaceExpiryTimestamp({
+        createdAt,
+        workspaceExpiresAt: input.workspaceExpiresAt,
+      }),
       createdAt,
       updatedAt: createdAt,
     },

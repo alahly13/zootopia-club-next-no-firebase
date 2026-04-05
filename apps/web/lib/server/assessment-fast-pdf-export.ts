@@ -45,6 +45,7 @@ export async function buildAssessmentFastPdfResponse(input: AssessmentExportRout
       preview: input.preview,
       themeMode: input.themeMode,
       qrCodeDataUrl,
+      pageNumberMode: "static-sections",
     });
     const storedArtifact = await persistAssessmentExportArtifact({
       ownerUid: input.user.uid,

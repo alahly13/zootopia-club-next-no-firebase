@@ -49,6 +49,8 @@ export interface AssessmentPreviewFileSurface {
   backgroundDarkUrl: string;
   sealLightAssetUrl: string;
   sealDarkAssetUrl: string;
+  facultyBadgeLightAssetUrl: string;
+  facultyBadgeDarkAssetUrl: string;
   supportPage: {
     eyebrow: string;
     title: string;

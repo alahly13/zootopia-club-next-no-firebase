@@ -1,0 +1,41 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "web-lint-post-polish",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"lint",
+				"--workspace",
+				"@zootopia/web"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "web-typecheck-post-polish",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"typecheck",
+				"--workspace",
+				"@zootopia/web"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "web-build-post-polish",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--workspace",
+				"@zootopia/web"
+			],
+			"isBackground": false
+		}
+	]
+}

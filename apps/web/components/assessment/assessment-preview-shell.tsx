@@ -36,6 +36,10 @@ export function AssessmentPreviewShell({
     themeMode === "light"
       ? preview.fileSurface.backgroundLightUrl
       : preview.fileSurface.backgroundDarkUrl;
+  const facultyBadgeAssetUrl =
+    themeMode === "light"
+      ? preview.fileSurface.facultyBadgeLightAssetUrl
+      : preview.fileSurface.facultyBadgeDarkAssetUrl;
 
   return (
     <div
@@ -96,37 +100,59 @@ export function AssessmentPreviewShell({
             </div>
           </div>
 
-          <a
-            href={preview.fileSurface.qrTargetUrl}
-            target="_blank"
-            rel="noreferrer"
-            className={`inline-flex w-fit items-center gap-3 self-start rounded-[1.5rem] border px-3 py-3 shadow-sm ${
-              dark
-                ? "border-white/10 bg-white/[0.06] text-white"
-                : "border-slate-200 bg-white/88 text-slate-950"
-            }`}
-          >
-            <Image
-              src={qrCodeDataUrl}
-              alt={
-                preview.locale === "ar"
-                  ? "رمز QR لمنصة زوتوبيا"
-                  : "QR code for Zootopia Club"
-              }
-              width={72}
-              height={72}
-              unoptimized
-              className="h-16 w-16 rounded-[1rem] bg-white p-1.5 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem]"
-            />
-            <div className="min-w-0">
-              <p className={`text-[0.66rem] font-semibold uppercase tracking-[0.22em] ${dark ? "text-white/55" : "text-slate-500"}`}>
-                QR
-              </p>
-              <p className="mt-1 text-sm font-semibold">
-                {preview.fileSurface.qrTargetUrl.replace(/^https?:\/\//, "")}
-              </p>
-            </div>
-          </a>
+          <div className="flex w-full flex-col items-start gap-2 lg:w-auto lg:items-end">
+            {/* This badge occupies the compact top-right branding pocket shared by detached
+                preview/result file headers. Keep it subtle and theme-aware so it complements
+                QR/title composition without stealing space from summary metadata below. */}
+            <span
+              aria-hidden="true"
+              className={`inline-flex rounded-[1.05rem] border px-2 py-1 shadow-sm ${
+                dark
+                  ? "border-white/12 bg-white/[0.04]"
+                  : "border-slate-200/90 bg-white/82"
+              }`}
+            >
+              <Image
+                src={facultyBadgeAssetUrl}
+                alt=""
+                width={128}
+                height={72}
+                className="h-10 w-auto max-w-[7.2rem] object-contain opacity-90 sm:h-12"
+              />
+            </span>
+
+            <a
+              href={preview.fileSurface.qrTargetUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-flex w-fit items-center gap-3 self-start rounded-[1.5rem] border px-3 py-3 shadow-sm lg:self-auto ${
+                dark
+                  ? "border-white/10 bg-white/[0.06] text-white"
+                  : "border-slate-200 bg-white/88 text-slate-950"
+              }`}
+            >
+              <Image
+                src={qrCodeDataUrl}
+                alt={
+                  preview.locale === "ar"
+                    ? "رمز QR لمنصة زوتوبيا"
+                    : "QR code for Zootopia Club"
+                }
+                width={72}
+                height={72}
+                unoptimized
+                className="h-16 w-16 rounded-[1rem] bg-white p-1.5 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem]"
+              />
+              <div className="min-w-0">
+                <p className={`text-[0.66rem] font-semibold uppercase tracking-[0.22em] ${dark ? "text-white/55" : "text-slate-500"}`}>
+                  QR
+                </p>
+                <p className="mt-1 text-sm font-semibold">
+                  {preview.fileSurface.qrTargetUrl.replace(/^https?:\/\//, "")}
+                </p>
+              </div>
+            </a>
+          </div>
         </header>
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -248,6 +274,7 @@ export function AssessmentPreviewShell({
         <AssessmentResultViewer
           messages={messages}
           preview={preview}
+          qrCodeDataUrl={qrCodeDataUrl}
           themeMode={themeMode}
         />
       </div>

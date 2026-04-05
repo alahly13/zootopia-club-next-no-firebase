@@ -2,7 +2,7 @@ import { ENV_KEYS } from "@zootopia/shared-config";
 
 import { apiSuccess } from "@/lib/server/api";
 import { getSessionCookieOptions } from "@/lib/preferences";
-import { appendAdminLog } from "@/lib/server/repository";
+import { appendAdminLog, clearUploadWorkspaceForOwner } from "@/lib/server/repository";
 import { getAuthenticatedSessionUser } from "@/lib/server/session";
 
 export const runtime = "nodejs";
@@ -13,6 +13,12 @@ export async function POST() {
   response.cookies.set(ENV_KEYS.sessionCookie, "", getSessionCookieOptions(0));
 
   if (user) {
+    /* Session logout is an immediate workspace boundary. Clear temporary uploaded source files
+       now so only generated assessment artifacts remain retained under their own lifecycle. */
+    const workspaceCleanup = await clearUploadWorkspaceForOwner(user.uid).catch(() => ({
+      clearedDocumentCount: 0,
+    }));
+
     await appendAdminLog({
       actorUid: user.uid,
       actorRole: user.role,
@@ -22,6 +28,9 @@ export async function POST() {
       resourceType: "session",
       resourceId: user.uid,
       route: "/api/auth/logout",
+      metadata: {
+        clearedUploadDocuments: workspaceCleanup.clearedDocumentCount,
+      },
     });
   }
 

@@ -18,3 +18,63 @@
 [debug] [2026-04-04T15:50:05.633Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
 [debug] [2026-04-04T15:50:05.634Z] > authorizing via signed-in user (alahlyeagle13@gmail.com)
 [info] zootopia2026
+[debug] [2026-04-04T22:12:42.762Z] ----------------------------------------------------------------------
+[debug] [2026-04-04T22:12:42.767Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\alahlyeagle13\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\bin\firebase.js use
+[debug] [2026-04-04T22:12:42.767Z] CLI Version:   15.13.0
+[debug] [2026-04-04T22:12:42.767Z] Platform:      win32
+[debug] [2026-04-04T22:12:42.768Z] Node Version:  v24.14.1
+[debug] [2026-04-04T22:12:42.768Z] Time:          Sat Apr 04 2026 22:12:42 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-04-04T22:12:42.768Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-04T22:12:42.770Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-04-04T22:12:43.198Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-04T22:12:43.199Z] > authorizing via signed-in user (alahlyeagle13@gmail.com)
+[info] zootopia2026
+[debug] [2026-04-05T05:03:24.418Z] ----------------------------------------------------------------------
+[debug] [2026-04-05T05:03:24.422Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\alahlyeagle13\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\bin\firebase.js use
+[debug] [2026-04-05T05:03:24.423Z] CLI Version:   15.13.0
+[debug] [2026-04-05T05:03:24.423Z] Platform:      win32
+[debug] [2026-04-05T05:03:24.423Z] Node Version:  v24.14.1
+[debug] [2026-04-05T05:03:24.423Z] Time:          Sun Apr 05 2026 05:03:24 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-04-05T05:03:24.424Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-05T05:03:24.427Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-04-05T05:03:24.877Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-05T05:03:24.878Z] > authorizing via signed-in user (alahlyeagle13@gmail.com)
+[info] zootopia2026
+[debug] [2026-04-05T05:03:39.089Z] ----------------------------------------------------------------------
+[debug] [2026-04-05T05:03:39.093Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\alahlyeagle13\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\bin\firebase.js use
+[debug] [2026-04-05T05:03:39.093Z] CLI Version:   15.13.0
+[debug] [2026-04-05T05:03:39.094Z] Platform:      win32
+[debug] [2026-04-05T05:03:39.094Z] Node Version:  v24.14.1
+[debug] [2026-04-05T05:03:39.095Z] Time:          Sun Apr 05 2026 05:03:39 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-04-05T05:03:39.095Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-05T05:03:39.098Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-04-05T05:03:39.480Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-05T05:03:39.481Z] > authorizing via signed-in user (alahlyeagle13@gmail.com)
+[info] zootopia2026
+[debug] [2026-04-05T05:05:15.161Z] ----------------------------------------------------------------------
+[debug] [2026-04-05T05:05:15.165Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\alahlyeagle13\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\bin\firebase.js use
+[debug] [2026-04-05T05:05:15.165Z] CLI Version:   15.13.0
+[debug] [2026-04-05T05:05:15.166Z] Platform:      win32
+[debug] [2026-04-05T05:05:15.166Z] Node Version:  v24.14.1
+[debug] [2026-04-05T05:05:15.166Z] Time:          Sun Apr 05 2026 05:05:15 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-04-05T05:05:15.166Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-05T05:05:15.169Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-04-05T05:05:15.822Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-05T05:05:15.823Z] > authorizing via signed-in user (alahlyeagle13@gmail.com)
+[info] zootopia2026
+[debug] [2026-04-05T05:09:33.140Z] ----------------------------------------------------------------------
+[debug] [2026-04-05T05:09:33.145Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\alahlyeagle13\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\bin\firebase.js use
+[debug] [2026-04-05T05:09:33.145Z] CLI Version:   15.13.0
+[debug] [2026-04-05T05:09:33.145Z] Platform:      win32
+[debug] [2026-04-05T05:09:33.146Z] Node Version:  v24.14.1
+[debug] [2026-04-05T05:09:33.146Z] Time:          Sun Apr 05 2026 05:09:33 GMT+0000 (Greenwich Mean Time)
+[debug] [2026-04-05T05:09:33.146Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-05T05:09:33.151Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-04-05T05:09:33.667Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-05T05:09:33.670Z] > authorizing via signed-in user (alahlyeagle13@gmail.com)
+[info] zootopia2026

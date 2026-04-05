@@ -8,6 +8,9 @@ export const DEFAULT_ASSESSMENT_FILE_THEME_MODE: AssessmentFileThemeMode = "ligh
 
 export const ASSESSMENT_FILE_QR_TARGET = "https://linktr.ee/ebnabdallah";
 export const ASSESSMENT_FILE_LOGO_ASSET_URL = "/favicon.svg";
+/* Keep this exact attribution line stable across preview/result/export file surfaces.
+   Future agents should update it here only, not inside individual renderers, so the footer
+   never drifts into mismatched wording or legacy label fragments. */
 export const ASSESSMENT_FILE_FOOTER_LINE = {
   leadingEmoji: "💻",
   text: "تمت برمجة وتطوير وتمويل هذه المنصة بكل شغف وإبداع على يد ابن عبدالله يوسف، دفعة 2022، قسم كيمياء حيوان",
@@ -16,6 +19,28 @@ export const ASSESSMENT_FILE_FOOTER_LINE = {
 export const ASSESSMENT_FILE_FOOTER_TEXT =
   `${ASSESSMENT_FILE_FOOTER_LINE.leadingEmoji} ${ASSESSMENT_FILE_FOOTER_LINE.text} ${ASSESSMENT_FILE_FOOTER_LINE.trailingEmoji}`;
 export const ASSESSMENT_FILE_SIGNATURE_IMAGE_ASSET_URL = "/signature.png";
+/* Keep the footer side anchors and page-arc geometry in one shared place so detached React file
+   pages and the shared print/PDF HTML can stay visually aligned without each renderer drifting
+   into its own seal size or page-badge proportions. */
+export const ASSESSMENT_FILE_FOOTER_LAYOUT = {
+  /* Keep both side anchors visually balanced: the left institutional seal and the right
+     page-number arc should occupy identical slots on one baseline. The larger footprint gives
+     the footer a stronger premium balance without introducing extra wording blocks. */
+  sideAnchorSizePx: 96,
+  /* The seal asset itself contains generous transparent margins, so we intentionally zoom it
+    inside the circular frame to restore the stamp-like visual strength across preview/export. */
+  sealImageScale: 3.35,
+  sealImagePaddingPx: 0,
+  /* Footer text can wrap up to two lines for readability in Arabic while remaining centered. */
+  footerTextMaxWidthPx: 468,
+  footerTextFontFamily:
+   "'Aref Ruqaa', 'Amiri', 'Alexandria', 'Segoe UI', Tahoma, Arial, sans-serif",
+  pageArcViewBox: 96,
+  pageArcRadius: 36,
+  pageArcStrokeWidth: 3.2,
+  pageArcDashArray: "170 56",
+  pageArcRotation: -128,
+} as const;
 
 const ASSESSMENT_FILE_SUPPORT_PAGE = {
   eyebrow: "رسالة أخيرة",
@@ -72,6 +97,14 @@ export const ASSESSMENT_FILE_SEAL_ASSET_URLS = {
   dark: "/dark-seal.png",
 } as const satisfies Record<AssessmentFileThemeMode, string>;
 
+/* This faculty badge pair is part of the shared assessment file-surface identity.
+   Keep light/dark mapping centralized here so detached pages plus both PDF lanes stay aligned
+   without route-level hardcoding or theme drift. */
+export const ASSESSMENT_FILE_FACULTY_BADGE_ASSET_URLS = {
+  light: "/light-faculty-badge.png",
+  dark: "/dark-faculty-badge.png",
+} as const satisfies Record<AssessmentFileThemeMode, string>;
+
 export function resolveAssessmentFileThemeMode(
   value: string | null | undefined,
   fallback: AssessmentFileThemeMode = DEFAULT_ASSESSMENT_FILE_THEME_MODE,
@@ -111,6 +144,8 @@ export function buildAssessmentFileSurface(input: {
     backgroundDarkUrl: ASSESSMENT_FILE_BACKGROUND_URLS.dark,
     sealLightAssetUrl: ASSESSMENT_FILE_SEAL_ASSET_URLS.light,
     sealDarkAssetUrl: ASSESSMENT_FILE_SEAL_ASSET_URLS.dark,
+    facultyBadgeLightAssetUrl: ASSESSMENT_FILE_FACULTY_BADGE_ASSET_URLS.light,
+    facultyBadgeDarkAssetUrl: ASSESSMENT_FILE_FACULTY_BADGE_ASSET_URLS.dark,
     // The PDF closing/support page belongs to the same file-surface identity contract as the
     // logo, QR target, background, export footer, and repeated seal assets. Future agents should
     // extend this shared descriptor instead of hardcoding visual-file metadata inside one renderer.

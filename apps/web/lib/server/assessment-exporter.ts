@@ -345,9 +345,8 @@ export async function buildAssessmentDocxExport(preview: NormalizedAssessmentPre
 
             return paragraphs;
           }),
-          /* DOCX exports should carry the same file-facing attribution line as preview/PDF
-             surfaces, but they intentionally omit the old "Platform Seal" heading so the export
-             wording stays consistent across every assessment file surface. */
+           /* DOCX exports should carry the same file-facing attribution line as preview/PDF
+             surfaces so footer wording stays consistent across every assessment file surface. */
           new Paragraph({
             alignment: AlignmentType.CENTER,
             bidirectional: true,
