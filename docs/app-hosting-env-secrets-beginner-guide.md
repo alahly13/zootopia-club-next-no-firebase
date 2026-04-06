@@ -1,0 +1,244 @@
+# Firebase App Hosting Env and Secrets Guide (Beginner)
+
+This is the production-safe env contract for this repo.
+
+## What this guide guarantees
+
+- It classifies each important env family by purpose, sensitivity, and where it belongs.
+- It keeps backend authority on Firebase Auth and server routes.
+- It avoids unsafe runtime shared-password patterns.
+- It explains exactly what is automatic vs manual in App Hosting.
+
+## Quick decisions
+
+- Use apps/web/apphosting.yaml as the code-managed deploy contract for non-secrets and secret references.
+- Keep real secret values in Cloud Secret Manager only.
+- Keep .env.example as documentation/template only.
+- Keep .env.local as local machine runtime values only.
+- Keep Firebase Console overrides empty unless you intentionally need an override.
+
+## Beginner basics
+
+### YAML vs JSON
+
+- YAML uses indentation and list dashes. App Hosting config file is YAML.
+- JSON uses braces and commas. It is not the format used for apphosting.yaml.
+
+### tsconfig.json vs apphosting.yaml
+
+- tsconfig.json configures TypeScript compiler/type behavior.
+- apphosting.yaml configures App Hosting runtime/build env and secrets.
+- They solve different problems and must not be mixed.
+
+### .env.local vs .env.example
+
+- .env.local: real local values on your machine.
+- .env.example: template only, no real secrets.
+
+## Variable family classification
+
+Legend:
+
+- Sensitivity: public, internal, secret
+- Deploy location: apphosting non-secret value, apphosting secret reference, or system-managed
+
+| Family | Keys | Sensitivity | Required or optional | Local (.env.local) | Deployed (App Hosting) |
+| --- | --- | --- | --- | --- | --- |
+| Firebase web client config | NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID, NEXT_PUBLIC_FIREBASE_APP_ID | public | required | yes | apphosting non-secret (BUILD) |
+| Firebase server project routing | FIREBASE_PROJECT_ID, FIREBASE_STORAGE_BUCKET | internal | required | yes | apphosting non-secret (RUNTIME) |
+| Firebase Admin credential fallback | FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY, FIREBASE_ADMIN_PROJECT_ID | secret/internal mix | optional fallback | yes | secret refs only when managed identity is not used |
+| Admin authorization controls | ZOOTOPIA_ADMIN_EMAILS | internal | required | yes | apphosting non-secret (RUNTIME) |
+| Session TTL control | ZOOTOPIA_SESSION_TTL_SECONDS | internal | optional | yes | apphosting non-secret (RUNTIME) |
+| Internal maintenance gate | ZOOTOPIA_MAINTENANCE_SECRET | secret | optional (required only when maintenance endpoint is used) | yes | apphosting secret reference (RUNTIME) |
+| AI provider credentials | GOOGLE_AI_API_KEY, DASHSCOPE_API_KEY | secret | at least one required | yes | apphosting secret references (RUNTIME) |
+| AI provider endpoint tuning | DASHSCOPE_BASE_URL, DASHSCOPE_COMPATIBLE_BASE_URL, ALIBABA_MODEL_STUDIO_BASE_URL | internal | optional | yes | apphosting non-secret (RUNTIME) |
+| Model selection overrides | GOOGLE_AI_MODEL, GOOGLE_AI_ADVANCED_MODEL, QWEN_MODEL | internal | optional | yes | apphosting non-secret (RUNTIME) |
+| Contact relay non-secrets | SMTP_HOST, SMTP_PORT, SMTP_SECURE | internal | optional (required when /api/contact is enabled) | yes | apphosting non-secret (RUNTIME) |
+| Contact relay secrets | SMTP_USER, SMTP_PASS, EMAIL_FROM, CONTACT_FORM_TO | secret/internal mix | optional (required when /api/contact is enabled) | yes | apphosting secret references (RUNTIME) |
+| Local PDF executable overrides | ASSESSMENT_PDF_BROWSER_EXECUTABLE_PATH, PUPPETEER_EXECUTABLE_PATH | local-only | optional | yes | never set in apphosting |
+| Command-only admin password input | ZOOTOPIA_ADMIN_PASSWORD | secret | optional input channel for rotation command only | shell/session only | never set in apphosting |
+| System-injected runtime/build values | FIREBASE_WEBAPP_CONFIG, FIREBASE_CONFIG, GOOGLE_CLOUD_PROJECT, GCLOUD_PROJECT, GOOGLE_APPLICATION_CREDENTIALS, K_SERVICE, FUNCTION_TARGET, NODE_ENV | system-managed | automatic | optionally present | do not set manually |
+
+## Current apphosting.yaml contract
+
+### Non-secret values managed in source
+
+BUILD values:
+
+- NEXT_PUBLIC_FIREBASE_API_KEY
+- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+- NEXT_PUBLIC_FIREBASE_PROJECT_ID
+- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+- NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+- NEXT_PUBLIC_FIREBASE_APP_ID
+
+RUNTIME values:
+
+- FIREBASE_PROJECT_ID
+- FIREBASE_STORAGE_BUCKET
+- ZOOTOPIA_ADMIN_EMAILS
+- ZOOTOPIA_SESSION_TTL_SECONDS
+- DASHSCOPE_BASE_URL
+- GOOGLE_AI_MODEL
+- GOOGLE_AI_ADVANCED_MODEL
+- QWEN_MODEL
+- SMTP_HOST
+- SMTP_PORT
+- SMTP_SECURE
+
+Optional commented non-secret compatibility aliases:
+
+- DASHSCOPE_COMPATIBLE_BASE_URL
+- ALIBABA_MODEL_STUDIO_BASE_URL
+
+### Secret references in source
+
+Active:
+
+- GOOGLE_AI_API_KEY -> google-ai-api-key
+
+Optional (commented until needed):
+
+- DASHSCOPE_API_KEY -> dashscope-api-key
+- SMTP_USER -> smtp-user
+- SMTP_PASS -> smtp-pass
+- EMAIL_FROM -> smtp-email-from
+- CONTACT_FORM_TO -> contact-form-to
+- ZOOTOPIA_MAINTENANCE_SECRET -> zootopia-maintenance-secret
+- FIREBASE_CLIENT_EMAIL -> firebase-client-email
+- FIREBASE_PRIVATE_KEY -> firebase-private-key
+
+## Safe dynamic admin-password design
+
+This repo does not use a runtime shared admin password variable for login checks. That is intentional.
+
+Why this is safer:
+
+- Admin auth is enforced by Firebase Auth sign-in + allowlist + admin claim checks.
+- Password ownership stays at user-account level in Firebase Auth.
+- Session issuance uses verified Firebase ID tokens, not a server-side shared secret comparison.
+
+Unsafe pattern to avoid:
+
+- Do not add any runtime variable like ZOOTOPIA_ADMIN_PASSWORD to apphosting.yaml.
+- Do not implement route handlers that compare a shared password from process.env for admin login.
+
+Supported dynamic rotation workflow:
+
+1. Choose a new password from your secure process.
+2. Rotate Firebase Auth admin account passwords via script.
+
+Linux/macOS one-shot:
+
+```bash
+npm run firebase:admin:set-passwords -- --password='NEW_PASSWORD'
+```
+
+PowerShell one-shot:
+
+```powershell
+$env:ZOOTOPIA_ADMIN_PASSWORD='NEW_PASSWORD'; npm run firebase:admin:set-passwords; Remove-Item Env:ZOOTOPIA_ADMIN_PASSWORD
+```
+
+Pipeline-safe mode (new script option):
+
+```bash
+echo 'NEW_PASSWORD' | npm run firebase:admin:set-passwords -- --password-stdin
+```
+
+3. Admin users sign out and sign back in so refreshed tokens are used.
+4. Keep password values out of .env files and out of source control.
+
+## Reserved key safety for App Hosting
+
+From Firebase App Hosting docs, do not define:
+
+- empty variable names or names containing =
+- keys beginning with X_FIREBASE_, X_GOOGLE_, CLOUD_RUN_
+- PORT, K_SERVICE, K_REVISION, K_CONFIGURATION
+- duplicate keys
+
+Also avoid depending on random environment-provided keys you did not set yourself.
+
+## Quotes, empty values, and private keys
+
+### Quotes
+
+- Simple values can be unquoted.
+- Values with spaces should be quoted.
+- Values with literal $ should escape as \$ when needed.
+
+### Empty values
+
+- Empty is valid for optional settings in .env.example.
+- Empty usually means disabled/unused fallback path.
+
+### Private key handling
+
+- Keep private keys in Secret Manager for production.
+- For local .env.local fallback, use one quoted line with escaped newlines:
+
+```dotenv
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+- Runtime code converts \n back to real newlines before initializing Firebase Admin SDK.
+
+## Automatic vs manual setup
+
+Automatic by platform:
+
+- App Hosting injects system variables (for example FIREBASE_WEBAPP_CONFIG and FIREBASE_CONFIG).
+- apps/web/next.config.ts can backfill NEXT_PUBLIC_FIREBASE_* from FIREBASE_WEBAPP_CONFIG if needed.
+
+Manual by operator:
+
+- Create secret values in Secret Manager.
+- Ensure backend has access to those secrets.
+- Keep Firebase Console overrides empty unless intentionally overriding file-based values.
+
+## Precedence rules you must remember
+
+App Hosting variable precedence (highest first):
+
+1. Firebase Console env values
+2. apphosting.<env>.yaml
+3. apphosting.yaml
+4. Firebase system-provided values
+
+Next.js env load order (server process lookup):
+
+1. process.env
+2. .env.$(NODE_ENV).local
+3. .env.local (not in test)
+4. .env.$(NODE_ENV)
+5. .env
+
+## Required manual secret setup commands
+
+Use Firebase CLI with npx:
+
+```bash
+npx -y firebase-tools@latest apphosting:secrets:set google-ai-api-key --project zootopia2026
+```
+
+Optional features:
+
+```bash
+npx -y firebase-tools@latest apphosting:secrets:set dashscope-api-key --project zootopia2026
+npx -y firebase-tools@latest apphosting:secrets:set smtp-user --project zootopia2026
+npx -y firebase-tools@latest apphosting:secrets:set smtp-pass --project zootopia2026
+npx -y firebase-tools@latest apphosting:secrets:set smtp-email-from --project zootopia2026
+npx -y firebase-tools@latest apphosting:secrets:set contact-form-to --project zootopia2026
+npx -y firebase-tools@latest apphosting:secrets:set zootopia-maintenance-secret --project zootopia2026
+```
+
+If you create secrets outside Firebase CLI, grant backend access afterward.
+
+## Rollout checklist
+
+- apphosting.yaml contains only non-secret values and secret references.
+- Secret values exist in Secret Manager.
+- No real secrets are committed.
+- Console overrides are empty or intentionally documented.
+- Deployment succeeds and admin/login/contact/assessment server routes behave correctly.

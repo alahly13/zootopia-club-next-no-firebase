@@ -21,7 +21,7 @@ import {
    this shared file-surface foundation before Puppeteer capture. Bump this whenever the shared
    assessment file layout changes materially so both lanes can invalidate stale source surfaces
    without collapsing back into one mixed route or cache contract. */
-export const ASSESSMENT_PRINT_LAYOUT_VERSION = "2026-04-06-compact-pdf-v22";
+export const ASSESSMENT_PRINT_LAYOUT_VERSION = "2026-04-06-compact-pdf-v23";
 
 function escapeHtml(value: string) {
   return value
@@ -501,18 +501,22 @@ export function buildAssessmentPrintHtml(input: {
   const footerSealImageScale = ASSESSMENT_FILE_FOOTER_LAYOUT.sealImageScale;
   const footerTextMaxWidth = `${ASSESSMENT_FILE_FOOTER_LAYOUT.footerTextMaxWidthPx}px`;
   const footerTextFontFamily = ASSESSMENT_FILE_FOOTER_LAYOUT.footerTextFontFamily;
-    /* Keep card growth intentionally subtle: this tiny bump fills whitespace a bit more across the
-      shared file surface while preserving readability and the existing 2-then-3 page rhythm. */
-    const firstPageQuestionCardMinHeight = "39.5mm";
-    const followingPageQuestionCardMinHeight = "26.2mm";
-    const followingPageQuestionCardPrintMinHeight = "28.2mm";
+  /* Keep card growth intentionally subtle: the opening page stays slightly safer so the shared
+     footer keeps its own slot, while later question pages gain a modest size bump to fill unused
+     whitespace without collapsing the current 3-card rhythm. */
+  const firstPageQuestionCardMinHeight = "38.4mm";
+  const followingPageQuestionCardMinHeight = "27.2mm";
+  const followingPageQuestionCardPrintMinHeight = "29mm";
   /* The final support-page composition must stay on one page with its own footer attached.
      Keep these print guards centralized so future tweaks do not reintroduce footer-only overflow. */
   const staticSectionMinHeight = "calc(100vh - 0.6mm)";
-  const supportPagePrintPadding = "12px 12px 10px";
-  const supportPagePrintCardPadding = "9px 10px";
-  const supportPagePrintGridGap = "8px";
-  const supportPagePrintSignatureWidth = "268px";
+  /* This gutter reserves breathing room between the page body and the shared footer row in
+     static-section mode. Preserve it when tuning page chrome so footer containment survives. */
+  const staticSectionFooterGap = "4px";
+  const supportPagePrintPadding = "11px 11px 9px";
+  const supportPagePrintCardPadding = "8px 9px";
+  const supportPagePrintGridGap = "7px";
+  const supportPagePrintSignatureWidth = "252px";
   /* Static section numbering keeps both Pro and Fast lanes on real page numbers rendered
      inside the shared bottom-right arc, avoiding brittle CSS page counters that can show `0`
      on some print engines while preserving a compatibility mode for older surfaces. */
@@ -542,30 +546,34 @@ export function buildAssessmentPrintHtml(input: {
       }),
     )
     .join("\n");
+  /* Keep each paged body separate from its footer row so both PDF lanes can reserve a true
+     footer slot instead of letting dense question content spill the footer into the next sheet. */
   const followingQuestionPageSections = followingQuestionPages
     .map((page, pageIndex) => {
       const pageNumber = pageIndex + 2;
 
       return `
         <section class="page-section page-section--question">
-          <section class="question-page-stack">
-            ${page.questions
-              .map((question) =>
-                renderQuestionCard({
-                  question,
-                  answerLabel,
-                  rationaleLabel,
-                  contentLanguage,
-                  className: "question-card--compact",
-                }),
-              )
-              .join("\n")}
-          </section>
-          ${
-            page.usesOverflowFallback
-              ? `<p class="overflow-note">Long-content safety fallback applied on this page to preserve clean borders and prevent card overlap.</p>`
-              : ""
-          }
+          <div class="page-section-body page-section-body--question">
+            <section class="question-page-stack">
+              ${page.questions
+                .map((question) =>
+                  renderQuestionCard({
+                    question,
+                    answerLabel,
+                    rationaleLabel,
+                    contentLanguage,
+                    className: "question-card--compact",
+                  }),
+                )
+                .join("\n")}
+            </section>
+            ${
+              page.usesOverflowFallback
+                ? `<p class="overflow-note">Long-content safety fallback applied on this page to preserve clean borders and prevent card overlap.</p>`
+                : ""
+            }
+          </div>
           ${renderAssessmentFileFooter({
             footerLine: preview.fileSurface.footerLine,
             sealAssetUrl,
@@ -1023,6 +1031,16 @@ export function buildAssessmentPrintHtml(input: {
       .page-section {
         display: flex;
         flex-direction: column;
+        gap: 6px;
+      }
+
+      /* Every paged section now keeps its main content in a dedicated body wrapper so the shared
+         footer can remain a true trailing sibling row. Do not collapse this wrapper back into the
+         footer-bearing section or dense content can steal the footer's page slot again. */
+      .page-section-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
         gap: 6px;
       }
 
@@ -1541,14 +1559,15 @@ export function buildAssessmentPrintHtml(input: {
         background: ${dark ? "radial-gradient(circle, rgba(56, 189, 248, 0.12), transparent 70%)" : "radial-gradient(circle, rgba(242, 198, 106, 0.16), transparent 72%)"};
       }
 
-      /* Keep the final support page as one coherent page composition: support content, signature,
-         and footer are intentionally grouped together so the footer cannot break onto a new page. */
+      /* This wrapper owns only the support-page body. The footer stays outside as the final
+         sibling row so static print pagination can reserve its space instead of letting the
+         support/signature stack push the footer onto a mostly empty following page. */
       .support-page-composition {
         position: relative;
         z-index: 1;
         display: flex;
         flex-direction: column;
-        min-height: 100%;
+        min-height: 0;
         gap: 10px;
         break-inside: avoid;
         page-break-inside: avoid;
@@ -2100,8 +2119,19 @@ export function buildAssessmentPrintHtml(input: {
         .page-number-mode-static-sections .page-section,
         .page-number-mode-static-sections .support-page {
           min-height: ${staticSectionMinHeight};
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-rows: minmax(0, 1fr) auto;
+          align-content: stretch;
+          gap: 0;
+        }
+
+        /* The dedicated page body wrapper preserves a real footer slot in static-section mode.
+           Keep this bottom gutter plus sibling-row structure intact so content density changes
+           cannot consume the footer space and produce footer-only ghost pages. */
+        .page-number-mode-static-sections .page-section-body,
+        .page-number-mode-static-sections .support-page-composition {
+          min-height: 0;
+          padding-bottom: ${staticSectionFooterGap};
         }
 
         /* Keep page footers bound to their owning page section by treating the footer row as a
@@ -2109,26 +2139,19 @@ export function buildAssessmentPrintHtml(input: {
            onto a following page when content density fluctuates near page boundaries. */
         .page-number-mode-static-sections .screen-footer {
           display: flex;
-          margin-top: auto;
+          margin-top: 0;
           flex-shrink: 0;
           break-inside: avoid;
           page-break-inside: avoid;
         }
 
-        .page-number-mode-static-sections .support-page-composition {
-          flex: 1 1 auto;
-          min-height: 0;
-        }
-
         .page-number-mode-static-sections .support-page-inner {
-          flex: 1 1 auto;
           min-height: 0;
         }
 
         /* Final support-page footer stays attached to the physical page bottom in static-section
            mode so the right-side page badge consistently lands in the bottom-right corner. */
         .page-number-mode-static-sections .support-page .screen-footer {
-          margin-top: auto;
           padding-top: 6px;
           break-before: avoid;
           page-break-before: avoid;
@@ -2169,7 +2192,7 @@ export function buildAssessmentPrintHtml(input: {
         }
 
         .question-card--compact {
-          padding: 7px 9px 7px;
+          padding: 7px 10px 7px;
           min-height: ${followingPageQuestionCardPrintMinHeight};
         }
 
@@ -2318,55 +2341,57 @@ export function buildAssessmentPrintHtml(input: {
       <span class="sheet-fold" aria-hidden="true"></span>
 
       <section class="page-section page-section--cover">
-        <section class="first-page-shell">
-          <section class="cover-shell">
-            <div class="hero-faculty-badge" aria-hidden="true">
-              <span class="hero-faculty-badge-card">
-                <img src="${escapeHtml(facultyBadgeAssetUrl)}" alt="" />
-              </span>
-            </div>
-
-            <div class="hero-qr">
-              <span class="hero-qr-card">
-                <img src="${escapeHtml(qrCodeDataUrl)}" alt="${escapeHtml(
-                  contentLanguage === "ar" ? "رمز QR لمنصة زوتوبيا" : "QR code for Zootopia Club",
-                )}" />
-              </span>
-            </div>
-
-            <header class="cover-brand">
-              <img class="brand-logo" src="${escapeHtml(preview.fileSurface.logoAssetUrl)}" alt="${escapeHtml(preview.fileSurface.platformName)}" />
-              <div class="cover-copy">
-                <span class="brand-eyebrow">${escapeHtml(preview.fileSurface.platformTagline)}</span>
-                <span class="brand-name">${escapeHtml(preview.fileSurface.platformName)}</span>
-                <span class="eyebrow">${escapeHtml(pdfEyebrow)}</span>
-                <h1>${escapeHtml(preview.title)}</h1>
-                <div class="summary-panel">
-                  <span class="summary-chip">${escapeHtml(summaryLabel)}</span>
-                  <p class="summary">${escapeHtml(preview.summary)}</p>
-                </div>
+        <div class="page-section-body page-section-body--cover">
+          <section class="first-page-shell">
+            <section class="cover-shell">
+              <div class="hero-faculty-badge" aria-hidden="true">
+                <span class="hero-faculty-badge-card">
+                  <img src="${escapeHtml(facultyBadgeAssetUrl)}" alt="" />
+                </span>
               </div>
-            </header>
 
-            <section class="meta-ribbon">${metadata}</section>
-            ${compositionBadges ? `<section class="composition-ribbon">${compositionBadges}</section>` : ""}
+              <div class="hero-qr">
+                <span class="hero-qr-card">
+                  <img src="${escapeHtml(qrCodeDataUrl)}" alt="${escapeHtml(
+                    contentLanguage === "ar" ? "رمز QR لمنصة زوتوبيا" : "QR code for Zootopia Club",
+                  )}" />
+                </span>
+              </div>
+
+              <header class="cover-brand">
+                <img class="brand-logo" src="${escapeHtml(preview.fileSurface.logoAssetUrl)}" alt="${escapeHtml(preview.fileSurface.platformName)}" />
+                <div class="cover-copy">
+                  <span class="brand-eyebrow">${escapeHtml(preview.fileSurface.platformTagline)}</span>
+                  <span class="brand-name">${escapeHtml(preview.fileSurface.platformName)}</span>
+                  <span class="eyebrow">${escapeHtml(pdfEyebrow)}</span>
+                  <h1>${escapeHtml(preview.title)}</h1>
+                  <div class="summary-panel">
+                    <span class="summary-chip">${escapeHtml(summaryLabel)}</span>
+                    <p class="summary">${escapeHtml(preview.summary)}</p>
+                  </div>
+                </div>
+              </header>
+
+              <section class="meta-ribbon">${metadata}</section>
+              ${compositionBadges ? `<section class="composition-ribbon">${compositionBadges}</section>` : ""}
+            </section>
+
+            ${
+              firstPageQuestionCards
+                ? `
+                  <section class="first-page-questions">
+                    ${firstPageQuestionCards}
+                  </section>
+                `
+                : ""
+            }
           </section>
-
           ${
-            firstPageQuestionCards
-              ? `
-                <section class="first-page-questions">
-                  ${firstPageQuestionCards}
-                </section>
-              `
+            firstQuestionPage.usesOverflowFallback
+              ? `<p class="overflow-note">Long-content safety fallback applied on this page to preserve clean borders and prevent card overlap.</p>`
               : ""
           }
-        </section>
-        ${
-          firstQuestionPage.usesOverflowFallback
-            ? `<p class="overflow-note">Long-content safety fallback applied on this page to preserve clean borders and prevent card overlap.</p>`
-            : ""
-        }
+        </div>
         ${renderAssessmentFileFooter({
           footerLine: preview.fileSurface.footerLine,
           sealAssetUrl,
@@ -2379,9 +2404,10 @@ export function buildAssessmentPrintHtml(input: {
 
       <!-- This closing support page is intentionally appended after every real assessment page.
            Future agents should keep it as the final standalone sheet, preserve its Arabic-only
-           hierarchy, and continue sourcing its copy/paths from the shared file-surface contract. -->
-      <section class="page-section support-page" dir="rtl" lang="ar">
-        <div class="support-page-composition">
+           hierarchy, continue sourcing its copy/paths from the shared file-surface contract, and
+           keep the footer as the final sibling row instead of nesting it inside the support body. -->
+      <section class="page-section page-section--support support-page" dir="rtl" lang="ar">
+        <div class="page-section-body support-page-composition">
           <div class="support-page-inner">
             <div class="support-grid">
               <div class="support-main">
@@ -2448,13 +2474,13 @@ export function buildAssessmentPrintHtml(input: {
             </div>
             <p class="support-closing">${escapeHtml(supportPage.closingLine)}</p>
           </div>
-          ${renderAssessmentFileFooter({
-            footerLine: preview.fileSurface.footerLine,
-            sealAssetUrl,
-            pageNumberText: String(supportPageNumber),
-            variant: "screen",
-          })}
         </div>
+        ${renderAssessmentFileFooter({
+          footerLine: preview.fileSurface.footerLine,
+          sealAssetUrl,
+          pageNumberText: String(supportPageNumber),
+          variant: "screen",
+        })}
       </section>
 
       <p class="print-hint">${escapeHtml(printHint)}</p>

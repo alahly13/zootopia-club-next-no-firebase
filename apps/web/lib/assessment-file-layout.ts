@@ -5,12 +5,12 @@ export const ASSESSMENT_FILE_FOLLOWING_PAGE_QUESTION_TARGET = 3;
    sacrificing the normal/common two-card opening rhythm. */
 /* Card geometry was tuned slightly larger again to reduce visual whitespace. Keep this budget a
   touch tighter so first-page overflow fallback still triggers early enough for dense content. */
-const ASSESSMENT_FILE_FIRST_PAGE_COMPLEXITY_BUDGET = 3200;
+const ASSESSMENT_FILE_FIRST_PAGE_COMPLEXITY_BUDGET = 3120;
 /* Keep later pages on the shared three-question rhythm in normal/common files while still
   allowing a rare fallback for unusually dense cards that would otherwise overlap in print/PDF. */
 /* Following-page cards are also subtly larger now; this guard keeps the 3-card default while
   preventing footer-adjacent crowding when content density spikes unexpectedly. */
-const ASSESSMENT_FILE_PAGE_COMPLEXITY_BUDGET = 3840;
+const ASSESSMENT_FILE_PAGE_COMPLEXITY_BUDGET = 3760;
 
 function chunkItems<T>(items: readonly T[], size: number) {
   const chunks: T[][] = [];
@@ -50,23 +50,162 @@ export function partitionAssessmentFileQuestions<T extends AssessmentFileQuestio
   };
 }
 
+type AssessmentFileScienceBlockLike = {
+  kind: "value" | "pair" | "list" | "pair-list";
+  label: string;
+  value?: string;
+  leftLabel?: string;
+  leftValue?: string;
+  rightLabel?: string;
+  rightValue?: string;
+  items?: string[];
+  pairs?: Array<{
+    left: string;
+    right: string;
+  }>;
+};
+
 type AssessmentFileQuestionLike = {
   stem: string;
+  questionType?: string | null;
+  typeLabel?: string | null;
+  difficultyLabel?: string | null;
   choices: Array<{ text: string }>;
+  scienceBlocks?: AssessmentFileScienceBlockLike[];
   supplementalLines: string[];
   answerDisplay: string;
   rationale: string | null;
   tags: string[];
 };
 
+const ASSESSMENT_FILE_MULTILINE_COMPLEXITY_BONUS = 120;
+const ASSESSMENT_FILE_LABEL_COMPLEXITY = 88;
+const ASSESSMENT_FILE_DIFFICULTY_BADGE_COMPLEXITY = 112;
+const ASSESSMENT_FILE_CHOICE_ROW_COMPLEXITY = 52;
+const ASSESSMENT_FILE_SUPPLEMENTAL_LINE_COMPLEXITY = 36;
+const ASSESSMENT_FILE_ANSWER_CARD_COMPLEXITY = 112;
+const ASSESSMENT_FILE_RATIONALE_CARD_COMPLEXITY = 104;
+const ASSESSMENT_FILE_TAG_COMPLEXITY = 26;
+const ASSESSMENT_FILE_TRUE_FALSE_COMPLEXITY = 176;
+const ASSESSMENT_FILE_FILL_BLANKS_COMPLEXITY = 88;
+const ASSESSMENT_FILE_MATCHING_COMPLEXITY = 216;
+const ASSESSMENT_FILE_MULTIPLE_RESPONSE_COMPLEXITY = 168;
+const ASSESSMENT_FILE_SCIENCE_BLOCK_COMPLEXITY = 160;
+const ASSESSMENT_FILE_SCIENCE_LIST_ITEM_COMPLEXITY = 64;
+const ASSESSMENT_FILE_SCIENCE_PAIR_ITEM_COMPLEXITY = 90;
+
+function estimateTextComplexity(text: string | null | undefined) {
+  if (!text) {
+    return 0;
+  }
+
+  const normalizedText = text.trim();
+  if (!normalizedText) {
+    return 0;
+  }
+
+  const lineBreakCount = normalizedText.match(/\n/g)?.length ?? 0;
+
+  return normalizedText.length + lineBreakCount * ASSESSMENT_FILE_MULTILINE_COMPLEXITY_BONUS;
+}
+
+function estimateScienceBlockComplexity(block: AssessmentFileScienceBlockLike) {
+  /* The shared pagination budget must count the structured science blocks that preview/print/PDF
+     cards can render beneath the stem. If future agents add richer block kinds without updating
+     this helper, dense cards can look safe on paper yet still push the page footer onto the next
+     sheet during export. */
+  const baseComplexity =
+    ASSESSMENT_FILE_SCIENCE_BLOCK_COMPLEXITY + estimateTextComplexity(block.label);
+
+  switch (block.kind) {
+    case "value":
+      return baseComplexity + estimateTextComplexity(block.value);
+    case "pair":
+      return (
+        baseComplexity +
+        ASSESSMENT_FILE_SCIENCE_PAIR_ITEM_COMPLEXITY +
+        estimateTextComplexity(block.leftLabel) +
+        estimateTextComplexity(block.leftValue) +
+        estimateTextComplexity(block.rightLabel) +
+        estimateTextComplexity(block.rightValue)
+      );
+    case "list":
+      return (
+        baseComplexity +
+        (block.items?.length ?? 0) * ASSESSMENT_FILE_SCIENCE_LIST_ITEM_COMPLEXITY +
+        (block.items?.reduce((sum, item) => sum + estimateTextComplexity(item), 0) ?? 0)
+      );
+    case "pair-list":
+      return (
+        baseComplexity +
+        (block.pairs?.length ?? 0) * ASSESSMENT_FILE_SCIENCE_PAIR_ITEM_COMPLEXITY +
+        (block.pairs?.reduce(
+          (sum, pair) =>
+            sum + estimateTextComplexity(pair.left) + estimateTextComplexity(pair.right),
+          0,
+        ) ?? 0)
+      );
+    default:
+      return baseComplexity;
+  }
+}
+
+function estimateQuestionTypeComplexity(question: AssessmentFileQuestionLike) {
+  switch (question.questionType) {
+    case "true_false":
+      return ASSESSMENT_FILE_TRUE_FALSE_COMPLEXITY;
+    case "fill_blanks":
+      return ASSESSMENT_FILE_FILL_BLANKS_COMPLEXITY;
+    case "matching":
+      return ASSESSMENT_FILE_MATCHING_COMPLEXITY;
+    case "multiple_response":
+      return question.choices.length === 0 ? ASSESSMENT_FILE_MULTIPLE_RESPONSE_COMPLEXITY : 0;
+    default:
+      return 0;
+  }
+}
+
 function estimateQuestionComplexity(question: AssessmentFileQuestionLike) {
+  /* Page-slot fallback is the shared contract that protects both detached preview pages and the
+     Fast/Pro export renderer from footer spill. Count visible badges, structured detail cards,
+     and multiline copy here so future card enrichments still trigger earlier fallback instead of
+     silently letting the footer escape onto the following page. */
   return (
-    question.stem.length +
-    question.choices.reduce((sum, choice) => sum + choice.text.length, 0) +
-    question.supplementalLines.reduce((sum, line) => sum + line.length, 0) +
-    question.answerDisplay.length +
-    (question.rationale?.length ?? 0) +
-    question.tags.reduce((sum, tag) => sum + tag.length, 0)
+    estimateTextComplexity(question.stem) +
+    (question.typeLabel ? ASSESSMENT_FILE_LABEL_COMPLEXITY + estimateTextComplexity(question.typeLabel) : 0) +
+    (question.difficultyLabel
+      ? ASSESSMENT_FILE_DIFFICULTY_BADGE_COMPLEXITY +
+        estimateTextComplexity(question.difficultyLabel)
+      : 0) +
+    question.choices.reduce(
+      (sum, choice) =>
+        sum +
+        ASSESSMENT_FILE_CHOICE_ROW_COMPLEXITY +
+        estimateTextComplexity(choice.text),
+      0,
+    ) +
+    question.supplementalLines.reduce(
+      (sum, line) =>
+        sum +
+        ASSESSMENT_FILE_SUPPLEMENTAL_LINE_COMPLEXITY +
+        estimateTextComplexity(line),
+      0,
+    ) +
+    (question.answerDisplay
+      ? ASSESSMENT_FILE_ANSWER_CARD_COMPLEXITY + estimateTextComplexity(question.answerDisplay)
+      : 0) +
+    (question.rationale
+      ? ASSESSMENT_FILE_RATIONALE_CARD_COMPLEXITY + estimateTextComplexity(question.rationale)
+      : 0) +
+    question.tags.reduce(
+      (sum, tag) => sum + ASSESSMENT_FILE_TAG_COMPLEXITY + estimateTextComplexity(tag),
+      0,
+    ) +
+    estimateQuestionTypeComplexity(question) +
+    (question.scienceBlocks?.reduce(
+      (sum, block) => sum + estimateScienceBlockComplexity(block),
+      0,
+    ) ?? 0)
   );
 }
 

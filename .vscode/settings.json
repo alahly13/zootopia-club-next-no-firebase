@@ -1,0 +1,18 @@
+{
+  // Local history snapshots can contain stale tsconfig options and should not
+  // participate in active TypeScript diagnostics for this workspace.
+  "files.watcherExclude": {
+    "**/.history/**": true
+  },
+  "search.exclude": {
+    "**/.history/**": true
+  },
+  "typescript.tsserver.watchOptions": {
+    "excludeDirectories": [
+      "**/.history",
+      "**/.next",
+      "**/.firebase",
+      "**/node_modules"
+    ]
+  }
+}

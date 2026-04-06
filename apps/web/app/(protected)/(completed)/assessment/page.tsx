@@ -5,6 +5,7 @@ import { AssessmentStudio } from "@/components/assessment/assessment-studio";
 import { getRequestUiContext } from "@/lib/server/request-context";
 import {
   getActiveDocumentForOwner,
+  getAssessmentDailyCreditsSummaryForUser,
   listAssessmentGenerationsForUser,
   listDocumentsForUser,
 } from "@/lib/server/repository";
@@ -15,10 +16,14 @@ export default async function AssessmentPage() {
     requireCompletedUser(APP_ROUTES.assessment),
     getRequestUiContext(),
   ]);
-  const [documents, generations, activeDocument] = await Promise.all([
+  const [documents, generations, activeDocument, credits] = await Promise.all([
     listDocumentsForUser(user.uid),
     listAssessmentGenerationsForUser(user.uid),
     getActiveDocumentForOwner(user.uid),
+    getAssessmentDailyCreditsSummaryForUser({
+      uid: user.uid,
+      role: user.role,
+    }),
   ]);
 
   return (
@@ -49,6 +54,7 @@ export default async function AssessmentPage() {
         initialDocuments={documents}
         initialGenerations={generations}
         initialActiveDocumentId={activeDocument?.id ?? null}
+        initialCreditSummary={credits}
       />
     </div>
   );
