@@ -1,5 +1,4 @@
 import { APP_ROUTES, ENV_KEYS } from "@zootopia/shared-config";
-
 import { NextResponse, type NextRequest } from "next/server";
 
 const USER_PROTECTED_MATCHERS = [

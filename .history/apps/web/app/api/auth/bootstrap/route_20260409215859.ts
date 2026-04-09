@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     if (!hasRecentSignIn(decodedToken)) {
       return apiError(
         "RECENT_SIGN_IN_REQUIRED",
-        "Please complete a fresh sign-in before creating a session.",
+        "Please complete a fresh Google sign-in before creating a session.",
         401,
       );
     }

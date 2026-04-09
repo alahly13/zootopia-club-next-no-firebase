@@ -2,7 +2,6 @@ import "server-only";
 
 import { FIREBASE_PROJECT_ID, FIRESTORE_DATABASE_ID } from "@zootopia/shared-config";
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
-import type { DecodedIdToken, UserRecord } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
@@ -15,12 +14,12 @@ import {
   verifySupabaseAccessToken,
 } from "@/lib/server/supabase-admin";
 
-type FirebaseAdminAuthAdapter = {
-  verifyIdToken: (idToken: string, checkRevoked?: boolean) => Promise<DecodedIdToken>;
+let cachedSupabaseAuthAdapter: {
+  verifyIdToken: (idToken: string) => Promise<Record<string, unknown>>;
   verifySessionCookie: (
     sessionCookie: string,
     checkRevoked?: boolean,
-  ) => Promise<DecodedIdToken>;
+  ) => Promise<Record<string, unknown>>;
   createSessionCookie: (
     idToken: string,
     options?: { expiresIn?: number },
@@ -28,14 +27,12 @@ type FirebaseAdminAuthAdapter = {
   listUsers: (
     maxResults: number,
     pageToken?: string,
-  ) => Promise<{ users: UserRecord[]; pageToken?: string }>;
-  getUser: (uid: string) => Promise<UserRecord>;
+  ) => Promise<{ users: unknown[]; pageToken?: string }>;
+  getUser: (uid: string) => Promise<unknown>;
   setCustomUserClaims: (uid: string, claims: Record<string, unknown>) => Promise<void>;
   revokeRefreshTokens: (uid: string) => Promise<void>;
   updateUser: (uid: string, updates: { disabled?: boolean }) => Promise<void>;
-};
-
-let cachedSupabaseAuthAdapter: FirebaseAdminAuthAdapter | null = null;
+} | null = null;
 
 function buildAuthError(code: string, message: string) {
   return Object.assign(new Error(message), {
@@ -125,7 +122,7 @@ export function getFirebaseAdminAuth() {
         );
       }
 
-      return decodedToken as DecodedIdToken;
+      return decodedToken as Record<string, unknown>;
     },
     async verifySessionCookie(sessionCookie: string) {
       const decodedToken = await verifySupabaseAccessToken(sessionCookie);
@@ -136,7 +133,7 @@ export function getFirebaseAdminAuth() {
         );
       }
 
-      return decodedToken as DecodedIdToken;
+      return decodedToken as Record<string, unknown>;
     },
     async createSessionCookie(idToken: string) {
       // Keep the existing server-authenticated session-cookie contract.

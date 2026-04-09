@@ -154,7 +154,7 @@ export async function POST(request: Request) {
     if (signInProvider !== "password") {
       return apiError(
         "EMAIL_PASSWORD_REQUIRED",
-        "Admin access requires email/password authentication.",
+        "Admin access requires Firebase Email/Password authentication.",
         403,
       );
     }

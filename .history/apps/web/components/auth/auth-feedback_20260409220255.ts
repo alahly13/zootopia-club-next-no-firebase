@@ -206,6 +206,8 @@ export function mapRegularLoginError(
         messages.adminLoginStatusRetryLaterTitle,
         messages.adminLoginStatusRetryLaterBody,
       );
+    case "SIGNUP_FAILED":
+    case "SIGNIN_FAILED":
     case "USER_SUSPENDED":
     case "auth/user-disabled":
       return status(
@@ -213,15 +215,6 @@ export function mapRegularLoginError(
         "permission",
         messages.loginStatusSuspendedTitle,
         messages.loginStatusSuspendedBody,
-        "assertive",
-      );
-    case "SIGNUP_FAILED":
-    case "SIGNIN_FAILED":
-      return status(
-        "danger",
-        "danger",
-        messages.loginStatusGenericErrorTitle,
-        messages.loginStatusGenericErrorBody,
         "assertive",
       );
     case "BOOTSTRAP_FAILED":
