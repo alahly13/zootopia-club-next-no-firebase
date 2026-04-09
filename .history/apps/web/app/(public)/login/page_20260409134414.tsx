@@ -47,7 +47,7 @@ export default async function LoginPage() {
           className="object-cover object-center opacity-0 transition-opacity duration-500 dark:opacity-100"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] transition-colors duration-700 dark:bg-background/65 dark:backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] transition-colors duration-700 dark:bg-background/70 dark:backdrop-blur-sm" />
       </div>
 
       {/* Regular-login badge ownership:

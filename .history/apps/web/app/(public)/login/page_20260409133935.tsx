@@ -47,7 +47,7 @@ export default async function LoginPage() {
           className="object-cover object-center opacity-0 transition-opacity duration-500 dark:opacity-100"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] transition-colors duration-700 dark:bg-background/65 dark:backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] transition-colors duration-700 dark:bg-background/70 dark:backdrop-blur-sm" />
       </div>
 
       {/* Regular-login badge ownership:
@@ -56,7 +56,7 @@ export default async function LoginPage() {
           while utility controls stay on logical end to prevent overlap across breakpoints. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute start-3 top-16 z-10 sm:start-4 sm:top-4 md:start-8 md:top-8"
+        className="pointer-events-none absolute start-3 top-3 z-10 sm:start-4 sm:top-4 md:start-8 md:top-8"
       >
         <Image
           src="/light-faculty-badge.png"
