@@ -1,5 +1,5 @@
 Zootopia Club Next Master Ledger
-Last refreshed: 2026-04-09 20:59:44
+Last refreshed: 2026-04-09 18:42:43
 
 Project Identity
 - Name: Zootopia Club Next
@@ -71,8 +71,8 @@ Current Truth Snapshot
 - `/admin` and `/admin/users` now merge the full Firebase Auth account inventory with stored Firestore user metadata, so admin user visibility is no longer capped at 100 hydrated user documents or limited only to accounts that already completed a normal bootstrap flow.
 - `/admin/users` now uses compact per-user entry cards with inline expansion panels for role/status/access/credit management, replacing the previous cramped right-rail table-actions pattern while preserving the same admin-only APIs and server authority.
 - Admin block/unblock now updates both the persistent `users.status` field and Firebase Auth's `disabled` flag, then revokes refresh tokens so suspension is enforced by backend/session authority even against already-issued sessions.
-- Mandatory non-admin profile completion is enforced server-side before access to the main user workspace and now requires full name, university code, valid E.164 phone number, and nationality, while admins remain exempt. `/settings` now renders Profile Completion as the dominant full-width workflow surface, keeps Runtime Status directly below it, moves the signed-in account summary into a compact secondary rail, uses a real Egypt-default international phone input plus searchable country selectors for phone/nationality, and persists normalized phone metadata (`phoneNumber`, `phoneCountryIso2`, `phoneCountryCallingCode`) server-authoritatively through the self-only profile update path.
-- Settings phone handling now treats phone as normal profile data (no Firebase OTP/reCAPTCHA verification lane and no `POST /api/users/me/phone-verification` endpoint); non-admin completion remains blocked until the stored phone field is valid E.164.
+- Mandatory non-admin profile completion is enforced server-side before access to the main user workspace and now requires full name, university code, verified phone number, and nationality, while admins remain exempt. `/settings` now renders Profile Completion as the dominant full-width workflow surface, keeps Runtime Status directly below it, moves the signed-in account summary into a compact secondary rail, uses a real Egypt-default international phone input plus searchable country selectors for phone/nationality, persists verified phone metadata (`phoneNumber`, `phoneVerifiedAt`, `phoneCountryIso2`, `phoneCountryCallingCode`) server-authoritatively, and still routes phone verification only through Firebase Web Auth (`RecaptchaVerifier` + `signInWithPhoneNumber`) into the self-only `POST /api/users/me/phone-verification` handoff, which is now locally rate-limited.
+- Settings phone OTP now uses the canonical Firebase-only flow (`RecaptchaVerifier` + `signInWithPhoneNumber` + `confirmationResult.confirm(...)`) and no longer calls `/api/users/me/phone-verification/recaptcha-enterprise`; server-authoritative persistence remains self-only via `POST /api/users/me/phone-verification`.
 - Root `.env.local` is the canonical local environment source; repo-root `.env`, `cloudrun.env`, `netlify.toml`, `Dockerfile`, `cloudbuild.yaml`, `deployment/runtime-manifest.json`, and `tests/*` are not active current-repo paths.
 
 Guide Alignment Notes
@@ -360,6 +360,7 @@ API Map
   - `GET /api/assessment/export/pdf/fast/[id]`
   - `POST /api/infographic`
   - `GET /api/infographic/[id]`
+  - `POST /api/users/me/phone-verification`
   - `PATCH /api/users/me/profile`
 - Admin APIs
   - `GET /api/admin/overview`
@@ -443,6 +444,7 @@ Mandatory Profile Completion Architecture
   - `fullName`
   - `universityCode`
   - `phoneNumber`
+  - `phoneVerifiedAt`
   - `nationality`
   - `profileCompleted`
   - `profileCompletedAt`
@@ -458,8 +460,10 @@ Mandatory Profile Completion Architecture
     - first 2 digits must be a cohort prefix from `13` through `31`
     - prefixes map to years `2013` through `2031`
   - `phoneNumber`
-    - validated server-side as a possible international E.164 number (`+<countrycode><number>`)
-    - normalized server-side and persisted with optional phone country metadata
+    - server-verified through Firebase phone OTP token handoff only
+    - normalized as E.164 (`+<countrycode><number>`)
+  - `phoneVerifiedAt`
+    - must exist alongside a valid E.164 phone number for non-admin completion
   - `nationality`
     - trim and normalize whitespace
     - normalized length 2 through 80 characters
@@ -467,7 +471,7 @@ Mandatory Profile Completion Architecture
 - Persistence model
   - stored on `users/{uid}`
   - server recomputes `profileCompleted` from stored fields instead of trusting client input
-  - phone persistence is server-authoritative through self-only profile updates
+  - phone verification persistence is server-authoritative through `POST /api/users/me/phone-verification`
 - Enforcement points
   - bootstrap redirect shaping in `POST /api/auth/bootstrap`
   - session helper checks in `apps/web/lib/server/session.ts`
@@ -475,6 +479,7 @@ Mandatory Profile Completion Architecture
   - protected user APIs return `PROFILE_INCOMPLETE` if the user is still gated
 - Settings save flow
   - `PATCH /api/users/me/profile` is the only self-service save path for stored profile fields in Settings
+  - `POST /api/users/me/phone-verification` is the only self-service path that can mark phone verification as complete
   - `apps/web/components/settings/profile-settings-form.tsx` provides the client UI for both normal users and admins
 - Admin policy
   - admins are exempt from the non-admin completion gate
@@ -798,38 +803,6 @@ Generated Artifacts And Non-Source-Of-Truth Paths
 - These files may exist locally after builds or verification runs and should not be used to infer runtime architecture
 
 Change Log
-- 2026-04-09 20:59:44 | Settings Phone Verification Removal Completion (Route + Copy + CSS Cleanup)
-  - Mandatory-first-step compliance:
-    - reread `zootopia-club-next-ledger.txt` fully before implementation.
-    - validated current edit state in source files before applying cleanup.
-  - Root goals completed:
-    - removed the remaining OTP/verification backend surface and finalized plain-phone profile ownership.
-    - removed unused OTP/reCAPTCHA styling and localized OTP strings left behind after UI refactor.
-    - refreshed privacy/current-state ledger wording to reflect the new contract.
-  - What changed:
-    - deleted legacy route:
-      - `apps/web/app/api/users/me/phone-verification/route.ts`
-    - removed now-unused Settings reCAPTCHA style blocks from:
-      - `apps/web/app/globals.css`
-    - updated Settings EN/AR wording and removed obsolete OTP message keys from:
-      - `apps/web/messages/en.json`
-      - `apps/web/messages/ar.json`
-    - updated privacy-policy profile-data wording (EN/AR) from verification-status language to plain phone metadata language in:
-      - `apps/web/lib/site-content.ts`
-    - refreshed ledger current-state truth sections:
-      - removed `POST /api/users/me/phone-verification` from the API map.
-      - updated mandatory profile-completion rules from `phoneVerifiedAt` to server-validated E.164 `phoneNumber` (+ phone country metadata).
-      - updated top snapshot bullets to reflect no OTP/reCAPTCHA verification lane.
-  - What was preserved intentionally:
-    - self-only profile update ownership remains on `PATCH /api/users/me/profile`.
-    - admin exemption from non-admin completion gate remains unchanged.
-    - same App Router/server-authoritative auth/session boundaries remain unchanged.
-  - Verification in this pass:
-    - `npm run lint --workspace @zootopia/web` passed.
-    - `npm run typecheck --workspace @zootopia/web` initially failed due stale generated `.next/dev/types/validator.ts` route references after route deletion; recovered by running `npm run clean:web`.
-    - `npm run typecheck --workspace @zootopia/web` passed after cleanup.
-    - `npm run build --workspace @zootopia/web` passed with `/api/users/me/phone-verification` removed from the route tree and `/api/users/me/profile` retained.
-
 - 2026-04-08 04:50:30 | Root Workspace Script Professionalization (Fast Web Lanes + Safe Rebuild)
   - Mandatory-first-step compliance:
     - reread `zootopia-club-next-ledger.txt` fully before implementation.

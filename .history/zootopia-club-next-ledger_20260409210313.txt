@@ -1,5 +1,5 @@
 Zootopia Club Next Master Ledger
-Last refreshed: 2026-04-09 20:59:44
+Last refreshed: 2026-04-09 18:42:43
 
 Project Identity
 - Name: Zootopia Club Next
@@ -798,38 +798,6 @@ Generated Artifacts And Non-Source-Of-Truth Paths
 - These files may exist locally after builds or verification runs and should not be used to infer runtime architecture
 
 Change Log
-- 2026-04-09 20:59:44 | Settings Phone Verification Removal Completion (Route + Copy + CSS Cleanup)
-  - Mandatory-first-step compliance:
-    - reread `zootopia-club-next-ledger.txt` fully before implementation.
-    - validated current edit state in source files before applying cleanup.
-  - Root goals completed:
-    - removed the remaining OTP/verification backend surface and finalized plain-phone profile ownership.
-    - removed unused OTP/reCAPTCHA styling and localized OTP strings left behind after UI refactor.
-    - refreshed privacy/current-state ledger wording to reflect the new contract.
-  - What changed:
-    - deleted legacy route:
-      - `apps/web/app/api/users/me/phone-verification/route.ts`
-    - removed now-unused Settings reCAPTCHA style blocks from:
-      - `apps/web/app/globals.css`
-    - updated Settings EN/AR wording and removed obsolete OTP message keys from:
-      - `apps/web/messages/en.json`
-      - `apps/web/messages/ar.json`
-    - updated privacy-policy profile-data wording (EN/AR) from verification-status language to plain phone metadata language in:
-      - `apps/web/lib/site-content.ts`
-    - refreshed ledger current-state truth sections:
-      - removed `POST /api/users/me/phone-verification` from the API map.
-      - updated mandatory profile-completion rules from `phoneVerifiedAt` to server-validated E.164 `phoneNumber` (+ phone country metadata).
-      - updated top snapshot bullets to reflect no OTP/reCAPTCHA verification lane.
-  - What was preserved intentionally:
-    - self-only profile update ownership remains on `PATCH /api/users/me/profile`.
-    - admin exemption from non-admin completion gate remains unchanged.
-    - same App Router/server-authoritative auth/session boundaries remain unchanged.
-  - Verification in this pass:
-    - `npm run lint --workspace @zootopia/web` passed.
-    - `npm run typecheck --workspace @zootopia/web` initially failed due stale generated `.next/dev/types/validator.ts` route references after route deletion; recovered by running `npm run clean:web`.
-    - `npm run typecheck --workspace @zootopia/web` passed after cleanup.
-    - `npm run build --workspace @zootopia/web` passed with `/api/users/me/phone-verification` removed from the route tree and `/api/users/me/profile` retained.
-
 - 2026-04-08 04:50:30 | Root Workspace Script Professionalization (Fast Web Lanes + Safe Rebuild)
   - Mandatory-first-step compliance:
     - reread `zootopia-club-next-ledger.txt` fully before implementation.

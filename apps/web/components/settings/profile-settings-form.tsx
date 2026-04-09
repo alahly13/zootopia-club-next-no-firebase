@@ -19,23 +19,12 @@ import {
 } from "lucide-react";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { useRouter } from "next/navigation";
-import {
-  type ConfirmationResult,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  signOut,
-} from "firebase/auth";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 import {
   SettingsCountrySelect,
   type SettingsSelectOption,
 } from "@/components/settings/settings-country-select";
-import {
-  getEphemeralFirebaseClientAuth,
-  isFirebasePhoneAuthTestingBypassEnabled,
-  isFirebaseWebConfigured,
-} from "@/lib/firebase/client";
 import {
   buildProfileCountryOptions,
   DEFAULT_PHONE_COUNTRY_ISO2,
@@ -45,14 +34,6 @@ import {
 } from "@/lib/profile-country-options";
 import type { AppMessages } from "@/lib/messages";
 
-type PhoneVerificationPhase =
-  | "idle"
-  | "sending"
-  | "code_sent"
-  | "verifying"
-  | "verified";
-
-const OTP_RESEND_COOLDOWN_SECONDS = 60;
 const SETTINGS_PHONE_MAX_DIGITS = 18;
 
 type ProfileSettingsFormProps = {
@@ -62,7 +43,6 @@ type ProfileSettingsFormProps = {
   initialUniversityCode: string;
   initialPhoneNumber: string;
   initialPhoneCountryIso2: string | null;
-  initialPhoneVerifiedAt: string | null;
   initialNationality: string;
   returnTo: string | null;
   profileCompleted: boolean;
@@ -79,9 +59,7 @@ function normalizePhoneForCompare(value: string | null | undefined) {
 
 /* Coerce any stored phone string into a safe `+<digits>` E.164 draft.
    Only digits and a leading `+` are kept. National-digit strings are merged
-   with the fallback country calling code when available. The result is always
-   stored in this canonical shape so direct === comparisons inside the phone
-   change handler remain reliable without any secondary normalization step. */
+   with the fallback country calling code when available. */
 function normalizePhoneDraftValue(
   value: string | null | undefined,
   fallbackCountryCallingCode?: string,
@@ -179,9 +157,6 @@ function resolveInitialPhoneCountryIso2(
   return resolveProfileCountryOption(options, DEFAULT_PHONE_COUNTRY_ISO2).iso2;
 }
 
-/* Format the stored E.164 draft into a readable international preview.
-   Uses libphonenumber-js directly (already in the dependency tree) to avoid
-   re-importing react-phone-number-input just for formatting. */
 function formatPhonePreview(phoneValue: string): string {
   if (!phoneValue || !phoneValue.startsWith("+")) return phoneValue;
   try {
@@ -192,41 +167,6 @@ function formatPhonePreview(phoneValue: string): string {
   }
 }
 
-function getErrorCode(error: unknown): string {
-  if (typeof error === "object" && error !== null && "code" in error) {
-    return String((error as { code: unknown }).code ?? "");
-  }
-  return "";
-}
-
-/* Firebase can surface phone-auth failures either through `error.code` or only
-   inside message text depending on runtime path. Normalize both sources so the
-   Settings page can show precise guidance and still preserve server authority. */
-function extractPhoneAuthErrorCode(error: unknown): string {
-  const explicitCode = getErrorCode(error).trim();
-  if (explicitCode) {
-    return explicitCode.toLowerCase();
-  }
-
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  const codeMatch = message.match(/auth\/[a-z0-9-]+/i);
-  return codeMatch ? codeMatch[0].toLowerCase() : "";
-}
-
-function extractServerPhoneVerificationCode(error: unknown): string {
-  if (!(error instanceof Error)) {
-    return "";
-  }
-
-  const message = error.message.trim();
-  return /^[A-Z0-9_]+$/.test(message) ? message : "";
-}
-
-function isApiKeyPhoneAuthError(code: string): boolean {
-  if (!code) return false;
-  return code === "auth/invalid-api-key" || code.includes("api-key");
-}
-
 export function ProfileSettingsForm({
   messages,
   locale,
@@ -234,18 +174,12 @@ export function ProfileSettingsForm({
   initialUniversityCode,
   initialPhoneNumber,
   initialPhoneCountryIso2,
-  initialPhoneVerifiedAt,
   initialNationality,
   returnTo,
   profileCompleted,
   isAdmin = false,
 }: ProfileSettingsFormProps) {
   const router = useRouter();
-  const firebaseConfigured = isFirebaseWebConfigured();
-  const phoneAuthTestingBypassEnabled = isFirebasePhoneAuthTestingBypassEnabled();
-  const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
-  const confirmationResultRef = useRef<ConfirmationResult | null>(null);
 
   const profileCountryOptions = useMemo(
     () => buildProfileCountryOptions(locale),
@@ -262,56 +196,29 @@ export function ProfileSettingsForm({
     [initialPhoneCountryIso2, initialPhoneNumber, profileCountryOptions],
   );
 
-  /* Sanitize the initial phone value so legacy non-E.164 strings don't put
-     the input into an unstable starting state. */
-  const initialPhoneDraftValue = normalizePhoneDraftValue(initialPhoneNumber);
-  const initialPhoneVerifiedTimestamp =
-    initialPhoneVerifiedAt && initialPhoneDraftValue ? initialPhoneVerifiedAt : null;
-
   const [selectedPhoneCountryIso2, setSelectedPhoneCountryIso2] = useState(
     defaultPhoneCountryIso2,
   );
-  const [phoneValue, setPhoneValue] = useState(initialPhoneDraftValue);
+  const [phoneValue, setPhoneValue] = useState(
+    normalizePhoneDraftValue(initialPhoneNumber),
+  );
   const [fullName, setFullName] = useState(initialFullName);
   const [universityCode, setUniversityCode] = useState(initialUniversityCode);
   const [nationality, setNationality] = useState(initialNationality);
   const [busy, setBusy] = useState(false);
-  const [phonePhase, setPhonePhase] = useState<PhoneVerificationPhase>(
-    initialPhoneVerifiedTimestamp ? "verified" : "idle",
-  );
-  const [otpCode, setOtpCode] = useState("");
-  const [phoneMessage, setPhoneMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [phoneAuthErrorCode, setPhoneAuthErrorCode] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<UserProfileFieldErrors>({});
-  const [otpResendAvailableAt, setOtpResendAvailableAt] = useState<number | null>(null);
-  const [otpTickMs, setOtpTickMs] = useState<number>(() => Date.now());
-  const [verifiedPhoneNumber, setVerifiedPhoneNumber] = useState(
-    initialPhoneVerifiedTimestamp ? initialPhoneDraftValue : "",
-  );
-  const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(
-    initialPhoneVerifiedTimestamp,
-  );
-  const [isRecaptchaReady, setIsRecaptchaReady] = useState(false);
-  const [isRecaptchaRendering, setIsRecaptchaRendering] = useState(false);
 
   const selectedPhoneCountry = useMemo(
     () => resolveProfileCountryOption(profileCountryOptions, selectedPhoneCountryIso2),
     [profileCountryOptions, selectedPhoneCountryIso2],
   );
 
-  /* National digit budget: total 18-digit E.164 cap minus the calling code length.
-     Wired directly to the plain input's maxLength so the assembled phoneValue
-     can never exceed the shared validator's contract. */
   const maxPhoneNationalDigits = useMemo(
     () => Math.max(1, SETTINGS_PHONE_MAX_DIGITS - selectedPhoneCountry.callingCode.length),
     [selectedPhoneCountry.callingCode],
   );
 
-  /* Derive the national-digit portion for display inside the plain text input.
-     The input shows/edits only national digits; the calling code lives in the
-     adjacent read-only badge. phoneValue always holds the full E.164 string —
-     this split is display-only and never written back to state. */
   const phoneNationalDisplay = useMemo(() => {
     if (!phoneValue || !phoneValue.startsWith("+")) return "";
     const digits = phoneValue.slice(1).replace(/\D/g, "");
@@ -319,6 +226,11 @@ export function ProfileSettingsForm({
       ? digits.slice(selectedPhoneCountry.callingCode.length)
       : digits;
   }, [phoneValue, selectedPhoneCountry.callingCode]);
+
+  const phoneValidation = useMemo(
+    () => validatePhoneNumberE164(phoneValue),
+    [phoneValue],
+  );
 
   const phoneCountryOptions = useMemo(
     () => buildPhoneCountryOptions(profileCountryOptions),
@@ -331,36 +243,6 @@ export function ProfileSettingsForm({
   );
 
   const phonePreview = useMemo(() => formatPhonePreview(phoneValue), [phoneValue]);
-
-  const isPhoneVerified =
-    Boolean(phoneVerifiedAt) &&
-    Boolean(verifiedPhoneNumber) &&
-    phoneValue.length > 0 &&
-    verifiedPhoneNumber === phoneValue;
-
-  const otpResendRemainingSeconds = useMemo(() => {
-    if (!otpResendAvailableAt) return 0;
-    const remainingMs = otpResendAvailableAt - otpTickMs;
-    return remainingMs <= 0 ? 0 : Math.ceil(remainingMs / 1000);
-  }, [otpResendAvailableAt, otpTickMs]);
-
-  const otpResendCountdownText =
-    otpResendRemainingSeconds > 0
-      ? messages.settingsPhoneOtpCountdownLabel.replace(
-          "{seconds}",
-          String(otpResendRemainingSeconds),
-        )
-      : messages.settingsPhoneOtpReadyLabel;
-
-    /* Keep the OTP input mounted for the entire Settings phone panel so users
-      can always see where to enter the code once sent. Only interaction state
-      is gated by phase, which avoids the prior "missing OTP field" confusion. */
-    const otpInputReady = phonePhase === "code_sent" || phonePhase === "verifying";
-  const otpResendLocked =
-    (phonePhase === "code_sent" || phonePhase === "verified") &&
-    otpResendRemainingSeconds > 0;
-  const otpDeliveryStateVisible =
-    phonePhase === "code_sent" || phonePhase === "verifying" || phonePhase === "verified";
 
   const formTitle = isAdmin
     ? messages.settingsSelfProfileTitle
@@ -398,7 +280,7 @@ export function ProfileSettingsForm({
           key: "phoneNumber",
           label: messages.settingsPhoneLabel,
           icon: Phone,
-          complete: isPhoneVerified,
+          complete: phoneValidation.ok,
         },
         {
           key: "nationality",
@@ -414,139 +296,17 @@ export function ProfileSettingsForm({
       }[],
     [
       fullName,
-      isPhoneVerified,
       messages.settingsFullNameLabel,
       messages.settingsNationalityLabel,
       messages.settingsPhoneLabel,
       messages.settingsUniversityCodeLabel,
       nationality,
+      phoneValidation.ok,
       universityCode,
     ],
   );
 
   const missingRequirementCount = requirementItems.filter((item) => !item.complete).length;
-
-  const clearRecaptchaVerifier = useCallback(() => {
-    if (recaptchaVerifierRef.current) {
-      recaptchaVerifierRef.current.clear();
-      recaptchaVerifierRef.current = null;
-    }
-    setIsRecaptchaReady(false);
-    setIsRecaptchaRendering(false);
-  }, []);
-
-  const ensureRecaptchaVerifier = useCallback(async () => {
-    if (recaptchaVerifierRef.current) return recaptchaVerifierRef.current;
-    if (!firebaseConfigured) {
-      throw new Error("RECAPTCHA_FIREBASE_CONFIG_MISSING");
-    }
-
-    const container = recaptchaContainerRef.current;
-    if (!container) throw new Error("RECAPTCHA_CONTAINER_MISSING");
-
-    // This container is scoped to Settings phone verification only. Keep the
-    // widget anchored inside this card so challenge UI never overlaps other
-    // page sections or floats over unrelated controls.
-    container.innerHTML = "";
-    setIsRecaptchaRendering(true);
-
-    try {
-      const auth = await getEphemeralFirebaseClientAuth();
-      auth.languageCode = locale;
-
-      /* Official Firebase integration-test mode: disable app verification only
-         in non-production when explicitly enabled by env flag. This keeps the
-         live Settings phone flow protected while allowing deterministic QA. */
-      auth.settings.appVerificationDisabledForTesting =
-        phoneAuthTestingBypassEnabled;
-
-      const verifier = new RecaptchaVerifier(auth, container, {
-        size: "normal",
-        callback: () => {
-          // Mark challenge completion explicitly so Send OTP can be enabled
-          // only after the user solves reCAPTCHA for this Settings flow.
-          setIsRecaptchaReady(true);
-          setError(null);
-        },
-        "expired-callback": () => {
-          setIsRecaptchaReady(false);
-          setPhonePhase(isPhoneVerified ? "verified" : "idle");
-          setPhoneMessage(messages.settingsPhoneRecaptchaPrompt);
-        },
-      });
-
-      recaptchaVerifierRef.current = verifier;
-      await verifier.render();
-      return verifier;
-    } finally {
-      setIsRecaptchaRendering(false);
-    }
-  }, [
-    firebaseConfigured,
-    isPhoneVerified,
-    locale,
-    phoneAuthTestingBypassEnabled,
-    messages.settingsPhoneRecaptchaPrompt,
-  ]);
-
-  useEffect(
-    () => () => {
-      clearRecaptchaVerifier();
-    },
-    [clearRecaptchaVerifier],
-  );
-
-  useEffect(() => {
-    if (!firebaseConfigured) {
-      clearRecaptchaVerifier();
-      return;
-    }
-
-    // Map setup failures to actionable diagnostics (provider/domain/key) so
-    // support can identify Firebase config faults without inspecting logs.
-    void ensureRecaptchaVerifier().catch((nextError) => {
-      const code = extractPhoneAuthErrorCode(nextError);
-      setPhoneAuthErrorCode(code || null);
-
-      if (code === "auth/operation-not-allowed") {
-        setError(messages.settingsPhoneVerificationProviderDisabled);
-      } else if (code === "auth/app-not-authorized") {
-        setError(messages.settingsPhoneVerificationDomainUnauthorized);
-      } else if (isApiKeyPhoneAuthError(code)) {
-        setError(messages.settingsPhoneVerificationConfigIssue);
-      } else if (code) {
-        setError(messages.settingsPhoneVerificationFailedWithCode.replace("{code}", code));
-      } else {
-        setError(messages.settingsPhoneVerificationFailed);
-      }
-    });
-  }, [
-    clearRecaptchaVerifier,
-    ensureRecaptchaVerifier,
-    firebaseConfigured,
-    messages.settingsPhoneVerificationConfigIssue,
-    messages.settingsPhoneVerificationDomainUnauthorized,
-    messages.settingsPhoneVerificationFailedWithCode,
-    messages.settingsPhoneVerificationFailed,
-    messages.settingsPhoneVerificationProviderDisabled,
-  ]);
-
-  useEffect(() => {
-    if (!otpResendAvailableAt) return;
-    const timerId = window.setInterval(() => {
-      setOtpTickMs(Date.now());
-    }, 1000);
-    return () => {
-      window.clearInterval(timerId);
-    };
-  }, [otpResendAvailableAt]);
-
-  useEffect(() => {
-    if (!otpResendAvailableAt) return;
-    if (otpResendRemainingSeconds === 0) {
-      setOtpResendAvailableAt(null);
-    }
-  }, [otpResendAvailableAt, otpResendRemainingSeconds]);
 
   function clearFieldError(field: keyof UserProfileFieldErrors) {
     setFieldErrors((current) => {
@@ -555,11 +315,6 @@ export function ProfileSettingsForm({
     });
   }
 
-  /* Assemble the full E.164 value from calling code + raw national digits and
-     update state only when the result differs from the current phoneValue.
-     Because this drives a plain <input type="tel"> there is no third-party
-     library emitting its own intermediate onChange calls, so this handler
-     fires exactly once per user keystroke — no feedback loop is possible. */
   function handleNationalDigitsChange(rawInput: string) {
     const nationalDigits = rawInput.replace(/\D/g, "").slice(0, maxPhoneNationalDigits);
     const nextPhoneValue = nationalDigits
@@ -569,34 +324,14 @@ export function ProfileSettingsForm({
     if (nextPhoneValue === phoneValue) return;
 
     setPhoneValue(nextPhoneValue);
-    setPhoneMessage(null);
     setError(null);
-    setOtpResendAvailableAt(null);
     clearFieldError("phoneNumber");
-
-    if (phonePhase === "code_sent" || phonePhase === "verifying") {
-      confirmationResultRef.current = null;
-      setOtpCode("");
-      clearRecaptchaVerifier();
-      setPhonePhase("idle");
-    }
-
-    /* Clear the verified snapshot whenever the number changes so a stale OTP
-       cannot bypass the server-enforced profile completion gate. */
-    if (nextPhoneValue !== verifiedPhoneNumber) {
-      setPhoneVerifiedAt(null);
-      if (phonePhase === "verified") {
-        setPhonePhase("idle");
-      }
-    }
   }
 
   function handlePhoneCountryChange(nextCountryIso2: string) {
     const nextCountry = resolveProfileCountryOption(profileCountryOptions, nextCountryIso2);
     if (nextCountry.iso2 === selectedPhoneCountryIso2) return;
 
-    /* Carry national digits across the country switch so the user doesn't lose
-       whatever they've already typed when changing the calling code. */
     const carriedDigits = extractNationalDigitsFromPhoneValue(
       phoneValue,
       selectedPhoneCountry,
@@ -607,275 +342,11 @@ export function ProfileSettingsForm({
 
     setSelectedPhoneCountryIso2(nextCountry.iso2);
     setPhoneValue(nextPhoneValue);
-    setPhoneMessage(null);
     setError(null);
-    setOtpResendAvailableAt(null);
     clearFieldError("phoneNumber");
-
-    if (phonePhase === "code_sent" || phonePhase === "verifying") {
-      confirmationResultRef.current = null;
-      setOtpCode("");
-      clearRecaptchaVerifier();
-      setPhonePhase("idle");
-    }
-
-    if (nextPhoneValue !== verifiedPhoneNumber) {
-      setPhoneVerifiedAt(null);
-      if (phonePhase === "verified") {
-        setPhonePhase("idle");
-      }
-    }
   }
 
-  async function handleSendVerificationCode() {
-    setPhoneMessage(null);
-    setError(null);
-    setPhoneAuthErrorCode(null);
-
-    if (!firebaseConfigured) {
-      setError(messages.settingsPhoneVerificationFailed);
-      return;
-    }
-
-    const phoneValidation = validatePhoneNumberE164(phoneValue);
-    if (!phoneValidation.ok) {
-      setFieldErrors((current) => ({
-        ...current,
-        phoneNumber: phoneValidation.error,
-      }));
-      return;
-    }
-
-    clearFieldError("phoneNumber");
-
-    try {
-      const verifier = await ensureRecaptchaVerifier();
-      if (!isRecaptchaReady) {
-        setError(messages.settingsPhoneRecaptchaPrompt);
-        return;
-      }
-
-      setPhonePhase("sending");
-      const auth = await getEphemeralFirebaseClientAuth();
-      auth.languageCode = locale;
-
-      confirmationResultRef.current = await signInWithPhoneNumber(
-        auth,
-        phoneValidation.value,
-        verifier,
-      );
-
-      setOtpCode("");
-      setPhonePhase("code_sent");
-      setOtpTickMs(Date.now());
-      setOtpResendAvailableAt(Date.now() + OTP_RESEND_COOLDOWN_SECONDS * 1000);
-      setPhoneMessage(messages.settingsPhoneVerificationSent);
-      setPhoneAuthErrorCode(null);
-      clearRecaptchaVerifier();
-      void ensureRecaptchaVerifier().catch((nextError) => {
-        const code = extractPhoneAuthErrorCode(nextError);
-        setPhoneAuthErrorCode(code || null);
-
-        if (code === "auth/operation-not-allowed") {
-          setError(messages.settingsPhoneVerificationProviderDisabled);
-        } else if (code === "auth/app-not-authorized") {
-          setError(messages.settingsPhoneVerificationDomainUnauthorized);
-        } else if (isApiKeyPhoneAuthError(code)) {
-          setError(messages.settingsPhoneVerificationConfigIssue);
-        } else if (code) {
-          setError(messages.settingsPhoneVerificationFailedWithCode.replace("{code}", code));
-        } else {
-          setError(messages.settingsPhoneVerificationFailed);
-        }
-      });
-    } catch (nextError) {
-      const code = extractPhoneAuthErrorCode(nextError);
-      setPhoneAuthErrorCode(code || null);
-
-      if (code === "auth/invalid-phone-number" || code === "auth/missing-phone-number") {
-        setFieldErrors((current) => ({
-          ...current,
-          phoneNumber: messages.settingsPhoneVerificationRequired,
-        }));
-        setError(messages.settingsPhoneVerificationRequired);
-      } else if (
-        code === "auth/captcha-check-failed" ||
-        code === "auth/missing-app-credential" ||
-        code === "auth/invalid-app-credential"
-      ) {
-        setError(messages.settingsPhoneRecaptchaPrompt);
-      } else if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") {
-        setError(messages.settingsPhoneVerificationRetryLater);
-      } else if (code === "auth/operation-not-allowed") {
-        setError(messages.settingsPhoneVerificationProviderDisabled);
-      } else if (code === "auth/app-not-authorized") {
-        setError(messages.settingsPhoneVerificationDomainUnauthorized);
-      } else if (isApiKeyPhoneAuthError(code)) {
-        setError(messages.settingsPhoneVerificationConfigIssue);
-      } else if (code === "auth/network-request-failed") {
-        setError(messages.settingsPhoneVerificationFailed);
-      } else if (code) {
-        setError(messages.settingsPhoneVerificationFailedWithCode.replace("{code}", code));
-      } else {
-        setError(messages.settingsPhoneVerificationFailed);
-      }
-
-      confirmationResultRef.current = null;
-      setOtpResendAvailableAt(null);
-      setPhonePhase(isPhoneVerified ? "verified" : "idle");
-      clearRecaptchaVerifier();
-      void ensureRecaptchaVerifier().catch((retryError) => {
-        const retryCode = extractPhoneAuthErrorCode(retryError);
-        setPhoneAuthErrorCode(retryCode || null);
-
-        if (retryCode === "auth/operation-not-allowed") {
-          setError(messages.settingsPhoneVerificationProviderDisabled);
-        } else if (retryCode === "auth/app-not-authorized") {
-          setError(messages.settingsPhoneVerificationDomainUnauthorized);
-        } else if (isApiKeyPhoneAuthError(retryCode)) {
-          setError(messages.settingsPhoneVerificationConfigIssue);
-        } else if (retryCode) {
-          setError(messages.settingsPhoneVerificationFailedWithCode.replace("{code}", retryCode));
-        } else {
-          setError(messages.settingsPhoneVerificationFailed);
-        }
-      });
-    }
-  }
-
-  async function handleConfirmVerificationCode() {
-    setPhoneMessage(null);
-    setError(null);
-    setPhoneAuthErrorCode(null);
-
-    const confirmationResult = confirmationResultRef.current;
-    if (!confirmationResult) {
-      setError(messages.settingsPhoneVerificationFailed);
-      return;
-    }
-
-    const normalizedCode = otpCode.trim();
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      setError(messages.settingsPhoneVerificationInvalidCode);
-      return;
-    }
-
-    setPhonePhase("verifying");
-
-    try {
-      const credential = await confirmationResult.confirm(normalizedCode);
-      const idToken = await credential.user.getIdToken(true);
-
-      const response = await fetch("/api/users/me/phone-verification", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ idToken }),
-      });
-
-      let payload: ApiResult<{
-        user: {
-          phoneNumber: string | null;
-          phoneVerifiedAt: string | null;
-          phoneCountryIso2: string | null;
-          phoneCountryCallingCode: string | null;
-        };
-      }>;
-
-      try {
-        payload = (await response.json()) as typeof payload;
-      } catch {
-        throw new Error("PHONE_VERIFICATION_RESPONSE_INVALID");
-      }
-
-      if (!response.ok || !payload.ok) {
-        if (!payload.ok) {
-          throw new Error(payload.error.code || "PHONE_VERIFICATION_FAILED");
-        }
-
-        throw new Error("PHONE_VERIFICATION_FAILED");
-      }
-
-      const persistedPhone = payload.data.user.phoneNumber ?? phoneValue;
-      const persistedCountryIso2 =
-        payload.data.user.phoneCountryIso2 ?? selectedPhoneCountry.iso2;
-      const normalizedPersistedPhone = normalizePhoneDraftValue(persistedPhone);
-      const persistedPhoneVerifiedAt =
-        normalizedPersistedPhone && payload.data.user.phoneVerifiedAt
-          ? payload.data.user.phoneVerifiedAt
-          : null;
-
-      // Treat malformed success payloads as failures so the UI never marks a
-      // phone as verified unless the persisted server contract is complete.
-      if (!normalizedPersistedPhone || !persistedPhoneVerifiedAt) {
-        throw new Error("PHONE_VERIFICATION_PERSISTENCE_INVALID");
-      }
-
-      setSelectedPhoneCountryIso2(
-        resolveProfileCountryOption(profileCountryOptions, persistedCountryIso2).iso2,
-      );
-      setPhoneValue(normalizedPersistedPhone);
-      setVerifiedPhoneNumber(normalizedPersistedPhone);
-      setPhoneVerifiedAt(persistedPhoneVerifiedAt);
-      clearFieldError("phoneNumber");
-      setOtpCode("");
-      setPhonePhase("verified");
-      setPhoneMessage(messages.settingsPhoneVerificationSuccess);
-      confirmationResultRef.current = null;
-      clearRecaptchaVerifier();
-
-      try {
-        const auth = await getEphemeralFirebaseClientAuth();
-        await signOut(auth);
-      } catch {
-        // Best-effort cleanup for temporary phone-auth client state.
-      }
-
-      router.refresh();
-    } catch (nextError) {
-      const code = extractPhoneAuthErrorCode(nextError);
-      const serverCode = extractServerPhoneVerificationCode(nextError);
-      setPhoneAuthErrorCode(code || serverCode || null);
-
-      if (
-        code === "auth/invalid-verification-code" ||
-        code === "auth/code-expired" ||
-        code === "auth/session-expired"
-      ) {
-        setError(messages.settingsPhoneVerificationInvalidCode);
-      } else if (serverCode === "PHONE_VERIFICATION_RATE_LIMITED") {
-        setError(messages.settingsPhoneVerificationRetryLater);
-      } else if (
-        serverCode === "RECENT_SIGN_IN_REQUIRED" ||
-        serverCode === "PHONE_PROVIDER_REQUIRED" ||
-        serverCode === "PHONE_NUMBER_INVALID" ||
-        serverCode === "ID_TOKEN_INVALID" ||
-        serverCode === "ID_TOKEN_REVOKED"
-      ) {
-        setError(messages.settingsPhoneVerificationInvalidCode);
-      } else if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") {
-        setError(messages.settingsPhoneVerificationRetryLater);
-      } else if (code === "auth/operation-not-allowed") {
-        setError(messages.settingsPhoneVerificationProviderDisabled);
-      } else if (code === "auth/app-not-authorized") {
-        setError(messages.settingsPhoneVerificationDomainUnauthorized);
-      } else if (isApiKeyPhoneAuthError(code)) {
-        setError(messages.settingsPhoneVerificationConfigIssue);
-      } else if (code === "auth/network-request-failed") {
-        setError(messages.settingsPhoneVerificationFailed);
-      } else if (code) {
-        setError(messages.settingsPhoneVerificationFailedWithCode.replace("{code}", code));
-      } else if (serverCode) {
-        setError(messages.settingsPhoneVerificationFailedWithCode.replace("{code}", serverCode));
-      } else {
-        setError(messages.settingsPhoneVerificationFailed);
-      }
-
-      setPhonePhase("code_sent");
-    }
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError(null);
@@ -893,12 +364,13 @@ export function ProfileSettingsForm({
       return;
     }
 
-    if (!isAdmin && !isPhoneVerified) {
+    const requiresPhone = !isAdmin || phoneValue.length > 0;
+    if (requiresPhone && !phoneValidation.ok) {
       setFieldErrors((current) => ({
         ...current,
-        phoneNumber: messages.settingsPhoneVerificationRequired,
+        phoneNumber: phoneValidation.error,
       }));
-      setError(messages.settingsPhoneVerificationRequired);
+      setError(phoneValidation.error);
       setBusy(false);
       return;
     }
@@ -922,6 +394,11 @@ export function ProfileSettingsForm({
           fullName: validation.value.fullName,
           universityCode: validation.value.universityCode,
           nationality: validation.value.nationality,
+          phoneNumber: phoneValidation.ok ? phoneValidation.value : null,
+          phoneCountryIso2: phoneValidation.ok ? selectedPhoneCountry.iso2 : null,
+          phoneCountryCallingCode: phoneValidation.ok
+            ? selectedPhoneCountry.callingCode
+            : null,
         }),
       });
 
@@ -1127,28 +604,18 @@ export function ProfileSettingsForm({
 
               <span
                 className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${
-                  isPhoneVerified
+                  phoneValidation.ok
                     ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"
                     : "border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200"
                 }`}
               >
-                {isPhoneVerified
-                  ? messages.settingsPhoneVerifiedBadge
-                  : messages.settingsPhoneUnverifiedBadge}
+                {phoneValidation.ok
+                  ? messages.settingsRequirementReady
+                  : messages.settingsRequirementRequired}
               </span>
             </div>
 
             <div className="mt-5 space-y-3">
-              {/* Country selector + plain national-digit input.
-                  The calling code badge is a read-only display element. The input
-                  holds only the national digits; handleNationalDigitsChange assembles
-                  the full E.164 string and writes it to phoneValue state.
-
-                  react-phone-number-input has been replaced with a plain
-                  <input type="tel"> to permanently eliminate the library's internal
-                  onChange feedback loop that caused "Maximum update depth exceeded".
-                  The SettingsCountrySelect, calling-code badge, and all downstream
-                  OTP/verification logic are fully preserved. */}
               <div className="grid items-stretch gap-3 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
                 <SettingsCountrySelect
                   label={messages.settingsPhoneCountryLabel}
@@ -1188,9 +655,9 @@ export function ProfileSettingsForm({
                     {phonePreview}
                   </span>
                 ) : null}
-                {phoneVerifiedAt ? (
+                {phoneValidation.ok ? (
                   <span className="inline-flex items-center rounded-full border border-emerald-500/18 bg-emerald-500/10 px-3 py-1 font-medium text-emerald-700 dark:border-emerald-400/18 dark:bg-emerald-400/10 dark:text-emerald-200">
-                    {messages.settingsPhoneVerifiedBadge}
+                    {messages.settingsRequirementReady}
                   </span>
                 ) : null}
               </div>
@@ -1199,144 +666,6 @@ export function ProfileSettingsForm({
                 <p className="text-sm text-danger">{fieldErrors.phoneNumber}</p>
               ) : null}
             </div>
-          </section>
-
-          <section className={`${panelClassName} space-y-4`}>
-            {/* Dedicated reCAPTCHA mount for Settings phone verification.
-                This keeps Google challenge UI scoped inside this OTP panel so
-                it does not overlap unrelated page sections. */}
-            <div className="settings-recaptcha-shell" data-ready={isRecaptchaReady ? "true" : "false"}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">
-                  reCAPTCHA
-                </p>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
-                    isRecaptchaReady
-                      ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"
-                      : "border border-slate-300/80 bg-white/80 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  }`}
-                >
-                  {isRecaptchaReady
-                    ? messages.settingsRequirementReady
-                    : isRecaptchaRendering
-                      ? messages.loading
-                      : messages.settingsRequirementRequired}
-                </span>
-              </div>
-
-              <p className="mt-2 text-xs text-foreground-muted">
-                {messages.settingsPhoneRecaptchaPrompt}
-              </p>
-
-              <div
-                ref={recaptchaContainerRef}
-                className="settings-recaptcha-slot"
-                aria-live="polite"
-              />
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-zinc-950 dark:text-white">
-                  {messages.settingsPhoneCodeLabel}
-                </p>
-                <p className="text-xs text-foreground-muted">
-                  {messages.settingsPhoneCodeHint}
-                </p>
-                {otpDeliveryStateVisible ? (
-                  <div className="mt-2 inline-flex items-center rounded-full border border-slate-300/80 bg-white/85 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900/85 dark:text-slate-200">
-                    {otpResendRemainingSeconds > 0
-                      ? `${messages.settingsPhoneOtpWaitingLabel} ${otpResendCountdownText}`
-                      : otpResendCountdownText}
-                  </div>
-                ) : null}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void handleSendVerificationCode()}
-                disabled={
-                  !firebaseConfigured ||
-                  !phoneValue ||
-                  isRecaptchaRendering ||
-                  !isRecaptchaReady ||
-                  phonePhase === "sending" ||
-                  phonePhase === "verifying" ||
-                  otpResendLocked
-                }
-                className="action-button justify-center"
-              >
-                {phonePhase === "sending" ? (
-                  <span className="inline-flex items-center gap-2">
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    {messages.loading}
-                  </span>
-                ) : phonePhase === "code_sent" || phonePhase === "verified" ? (
-                  messages.settingsPhoneResendCodeAction
-                ) : (
-                  messages.settingsPhoneSendCodeAction
-                )}
-              </button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-              <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-foreground-muted">
-                  {messages.settingsPhoneCodeLabel}
-                </span>
-                <input
-                  id="settings-phone-otp-code"
-                  name="settings-phone-otp-code"
-                  type="text"
-                  value={otpCode}
-                  onChange={(event) =>
-                    setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder={messages.settingsPhoneCodePlaceholder}
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  maxLength={6}
-                  dir="ltr"
-                  disabled={!otpInputReady || phonePhase === "verifying"}
-                  className={textFieldClassName}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => void handleConfirmVerificationCode()}
-                disabled={!otpInputReady || phonePhase === "verifying"}
-                className="action-button justify-center"
-              >
-                {phonePhase === "verifying" ? (
-                  <span className="inline-flex items-center gap-2">
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    {messages.loading}
-                  </span>
-                ) : (
-                  messages.settingsPhoneVerifyCodeAction
-                )}
-              </button>
-            </div>
-
-            {!otpInputReady ? (
-              <p className="text-xs text-foreground-muted">
-                {messages.settingsPhoneCodeLockedHint}
-              </p>
-            ) : null}
-
-            {!firebaseConfigured ? (
-              <p className="text-sm text-danger">
-                {messages.settingsPhoneVerificationFailed}
-              </p>
-            ) : null}
-
-            {phoneMessage ? (
-              <p className="text-sm text-emerald-600 dark:text-emerald-300">
-                {phoneMessage}
-              </p>
-            ) : null}
           </section>
 
           <div className={panelClassName}>
@@ -1362,17 +691,6 @@ export function ProfileSettingsForm({
           {error ? (
             <div className="rounded-[1.4rem] border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700 shadow-[0_14px_34px_rgba(239,68,68,0.08)] dark:text-red-300">
               <p>{error}</p>
-              {/* Keep raw Firebase code visible inside Settings only when present.
-                  This gives QA/support deterministic root-cause breadcrumbs while
-                  preserving the same backend verification ownership contract. */}
-              {phoneAuthErrorCode ? (
-                <p className="mt-1 text-xs font-semibold tracking-wide opacity-85">
-                  {messages.settingsPhoneVerificationErrorCodeLabel.replace(
-                    "{code}",
-                    phoneAuthErrorCode,
-                  )}
-                </p>
-              ) : null}
             </div>
           ) : null}
 

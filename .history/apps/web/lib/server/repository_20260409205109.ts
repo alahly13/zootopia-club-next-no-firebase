@@ -661,6 +661,7 @@ function buildUserDocumentFromAuthRecord(
     fullName: existing?.fullName ?? null,
     universityCode: existing?.universityCode ?? null,
     phoneNumber: existing?.phoneNumber ?? null,
+    phoneVerifiedAt: existing?.phoneVerifiedAt ?? null,
     phoneCountryIso2: existing?.phoneCountryIso2 ?? null,
     phoneCountryCallingCode: existing?.phoneCountryCallingCode ?? null,
     nationality: existing?.nationality ?? null,
@@ -676,6 +677,7 @@ function buildUserDocumentFromAuthRecord(
     fullName: profileState.fullName,
     universityCode: profileState.universityCode,
     phoneNumber: profileState.phoneNumber,
+    phoneVerifiedAt: profileState.phoneVerifiedAt,
     phoneCountryIso2: profileState.phoneCountryIso2,
     phoneCountryCallingCode: profileState.phoneCountryCallingCode,
     nationality: profileState.nationality,
@@ -778,6 +780,7 @@ export async function upsertUserFromAuth(input: {
     fullName: existing?.fullName ?? null,
     universityCode: existing?.universityCode ?? null,
     phoneNumber: existing?.phoneNumber ?? null,
+    phoneVerifiedAt: existing?.phoneVerifiedAt ?? null,
     phoneCountryIso2: existing?.phoneCountryIso2 ?? null,
     phoneCountryCallingCode: existing?.phoneCountryCallingCode ?? null,
     nationality: existing?.nationality ?? null,
@@ -793,6 +796,7 @@ export async function upsertUserFromAuth(input: {
     fullName: profileState.fullName,
     universityCode: profileState.universityCode,
     phoneNumber: profileState.phoneNumber,
+    phoneVerifiedAt: profileState.phoneVerifiedAt,
     phoneCountryIso2: profileState.phoneCountryIso2,
     phoneCountryCallingCode: profileState.phoneCountryCallingCode,
     nationality: profileState.nationality,
@@ -870,6 +874,7 @@ export async function setUserRole(uid: string, role: UserRole) {
     fullName: user.fullName,
     universityCode: user.universityCode,
     phoneNumber: user.phoneNumber,
+    phoneVerifiedAt: user.phoneVerifiedAt,
     phoneCountryIso2: user.phoneCountryIso2 ?? null,
     phoneCountryCallingCode: user.phoneCountryCallingCode ?? null,
     nationality: user.nationality,
@@ -883,6 +888,7 @@ export async function setUserRole(uid: string, role: UserRole) {
     fullName: profileState.fullName,
     universityCode: profileState.universityCode,
     phoneNumber: profileState.phoneNumber,
+    phoneVerifiedAt: profileState.phoneVerifiedAt,
     phoneCountryIso2: profileState.phoneCountryIso2,
     phoneCountryCallingCode: profileState.phoneCountryCallingCode,
     nationality: profileState.nationality,
@@ -943,7 +949,7 @@ export async function setUserStatus(uid: string, status: UserStatus) {
 
 export async function updateUserProfile(
   uid: string,
-  profile: UpdateUserProfileInput,
+  profile: RequiredUserProfile,
 ) {
   const user = await getUserByUid(uid);
   if (!user) {
@@ -951,16 +957,14 @@ export async function updateUserProfile(
   }
 
   const now = toIsoTimestamp(new Date());
-  // Settings keeps profile ownership server-authoritative by persisting only
-  // normalized profile fields from this repository path.
   const profileState = resolveProfileState({
     role: user.role,
     fullName: profile.fullName,
     universityCode: profile.universityCode,
-    phoneNumber: profile.phoneNumber ?? null,
-    phoneCountryIso2: profile.phoneCountryIso2 ?? user.phoneCountryIso2 ?? null,
-    phoneCountryCallingCode:
-      profile.phoneCountryCallingCode ?? user.phoneCountryCallingCode ?? null,
+    phoneNumber: user.phoneNumber,
+    phoneVerifiedAt: user.phoneVerifiedAt,
+    phoneCountryIso2: user.phoneCountryIso2 ?? null,
+    phoneCountryCallingCode: user.phoneCountryCallingCode ?? null,
     nationality: profile.nationality,
     profileCompletedAt: user.profileCompletedAt,
     now,
@@ -971,9 +975,62 @@ export async function updateUserProfile(
     fullName: profileState.fullName,
     universityCode: profileState.universityCode,
     phoneNumber: profileState.phoneNumber,
+    phoneVerifiedAt: profileState.phoneVerifiedAt,
     phoneCountryIso2: profileState.phoneCountryIso2,
     phoneCountryCallingCode: profileState.phoneCountryCallingCode,
     nationality: profileState.nationality,
+    profileCompleted: profileState.profileCompleted,
+    profileCompletedAt: profileState.profileCompletedAt,
+    updatedAt: now,
+  };
+
+  if (shouldUseFirestore()) {
+    await getFirebaseAdminFirestore()
+      .collection("users")
+      .doc(uid)
+      .set(nextUser, { merge: true });
+  } else {
+    getMemoryStore().users.set(uid, nextUser);
+  }
+
+  return nextUser;
+}
+
+export async function updateUserPhoneVerification(
+  uid: string,
+  input: {
+    phoneNumber: string;
+    phoneVerifiedAt?: string | null;
+  },
+) {
+  const user = await getUserByUid(uid);
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  const now = toIsoTimestamp(new Date());
+  const profileState = resolveProfileState({
+    role: user.role,
+    fullName: user.fullName,
+    universityCode: user.universityCode,
+    phoneNumber: input.phoneNumber,
+    phoneVerifiedAt: input.phoneVerifiedAt ?? now,
+    phoneCountryIso2: user.phoneCountryIso2 ?? null,
+    phoneCountryCallingCode: user.phoneCountryCallingCode ?? null,
+    nationality: user.nationality,
+    profileCompletedAt: user.profileCompletedAt,
+    now,
+  });
+
+  /* Phone verification must stay server-authoritative. This update path accepts only a
+     freshly verified number from the server route and recomputes profile completion so
+     client-side form state cannot forge a completed profile. */
+  const nextUser: UserDocument = {
+    ...user,
+    phoneNumber: profileState.phoneNumber,
+    phoneVerifiedAt: profileState.phoneVerifiedAt,
+    phoneCountryIso2: profileState.phoneCountryIso2,
+    phoneCountryCallingCode: profileState.phoneCountryCallingCode,
     profileCompleted: profileState.profileCompleted,
     profileCompletedAt: profileState.profileCompletedAt,
     updatedAt: now,
